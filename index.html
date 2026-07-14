@@ -648,7 +648,7 @@
     <div id="share-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 hidden">
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-2xl relative">
             <button onclick="document.getElementById('share-modal').classList.add('hidden')" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
-            <h3 class="font-black text-slate-800 text-sm flex items-center space-x-2"><i data-lucide="share-2" class="w-4 h-4 text-indigo-600"></i><span>Canales de Compartición Activos</span></h3>
+            <h3 class="font-black text-slate-800 text-sm flex items-center space-x-2"><i data-lucide="share-2" class="w-4 h-4 text-indigo-600"></i><span>Módulo de Envíos</span></h3>
             <p id="share-modal-desc" class="text-[11px] text-slate-500"></p>
             <div id="share-buttons-grid" class="grid grid-cols-2 gap-2 text-xs"></div>
         </div>
@@ -682,7 +682,6 @@
                 };
             },
             hashPass: function(pass) {
-                // Simulación de encriptación para el "BaaS" local (Base64)
                 return btoa(pass);
             },
             unhashPass: function(hash) {
@@ -721,7 +720,6 @@
         let autoBackupSettings = JSON.parse(localStorage.getItem('InsighCom_autoBackup')) || { enabled: false, time: '18:00', lastBackupDate: '' };
         let currentModalContext = "";
 
-        // Motor de Sincronización Automática
         function checkAutoSync() {
             const currentRaw = localStorage.getItem(LocalBaaS.dbName);
             if (currentRaw && currentRaw !== lastStorageHash) {
@@ -763,7 +761,6 @@
             }
         }
         
-        // Escáner local y receptor de eventos dinámicos
         setInterval(checkAutoSync, 2000);
         window.addEventListener('storage', (e) => {
             if (e.key === LocalBaaS.dbName) checkAutoSync();
@@ -886,18 +883,14 @@
                 const user = storage.users.find(u => u.email.toLowerCase() === email && LocalBaaS.unhashPass(u.password) === password);
                 if(user) { 
                     if (user.role !== 'admin') {
-                        // Check if device is already authorized for this user
                         const isAuthorized = localStorage.getItem('auth_code_passed_' + user.email);
-                        
                         if (isAuthorized) {
-                            // Already authorized on this device, log in directly
                             storage.currentUser = user;
                             saveStorage();
                             showToast(`¡Bienvenido de vuelta, ${user.name}!`);
                             validateSession();
                             document.getElementById('auth-form').reset();
                         } else {
-                            // First time on this device, ask for code
                             const token = prompt("Por razones de seguridad y sincronización, ingresa el código de acceso proporcionado por tu Administrador:");
                             if (token) {
                                 try {
@@ -911,7 +904,6 @@
                                         if (updatedUser) {
                                             storage.currentUser = updatedUser;
                                             saveStorage();
-                                            // Save authorization flag in localStorage
                                             localStorage.setItem('auth_code_passed_' + updatedUser.email, 'true');
                                             
                                             showToast(`Sincronización exitosa. ¡Bienvenido, ${updatedUser.name}!`);
@@ -931,7 +923,6 @@
                             }
                         }
                     } else {
-                        // Admins log in directly
                         storage.currentUser = user; 
                         saveStorage(); 
                         showToast(`¡Bienvenido de vuelta, ${user.name}!`); 
@@ -1052,11 +1043,13 @@
                 let alertsHtml = '';
                 
                 pendingInvoices.forEach(d => {
-                    let sub = 0; d.items.forEach(i => sub += i.qty * i.price);
-                    let disc = d.discountType === 'percent' ? sub*(d.discountVal/100) : d.discountVal;
-                    let tx = 0; d.items.forEach(i => tx += (i.qty*i.price)*(i.tax/100));
-                    let total = (sub - disc) + tx + d.shipping;
-                    let balance = total - d.paid;
+                    let calcSub = 0; let calcTx = 0;
+                    d.items.forEach(i => { calcSub += i.qty * i.price; if(d.taxTiming === 'before') calcTx += (i.qty * i.price) * (i.tax/100); });
+                    let discCalc = d.discountType === 'percent' ? calcSub * (d.discountVal/100) : d.discountVal;
+                    if(d.taxTiming === 'after') { let f = calcSub > 0 ? (calcSub - discCalc)/calcSub : 0; d.items.forEach(i => calcTx += (i.qty * i.price * f) * (i.tax/100)); }
+                    
+                    let total = d.total !== undefined ? d.total : (calcSub - discCalc) + calcTx + (d.shipping||0);
+                    let balance = d.balance !== undefined ? d.balance : total - (d.paid||0);
                     
                     if (balance > 0) {
                         alertsHtml += `<li><b>${d.client.name}</b> (Folio ${d.folio}): Saldo pendiente por cobrar de <b class="text-rose-800">$${balance.toFixed(2)}</b></li>`;
@@ -1163,9 +1156,21 @@
 
         function saveDocument(e) {
             e.preventDefault(); const editId = document.getElementById('edit-document-id').value; const selectedBusinessId = document.getElementById('doc-business-selector').value; let items = [];
+            
+            // Re-calcular estrictamente para guardar en la BD valores matemáticamente correctos y definitivos (No codificados)
+            let backendSubtotal = 0; let backendTax = 0;
+            const docTaxTiming = document.getElementById('doc-tax-timing').value;
+            const docDiscountVal = parseFloat(document.getElementById('doc-discount-val').value) || 0;
+            const docDiscountType = document.getElementById('doc-discount-type').value;
+            
             document.querySelectorAll('.row-item-target').forEach(row => {
                 const itemId = row.querySelector('.row-item-id').value; const qty = parseFloat(row.querySelector('.row-qty').value) || 1; const name = row.querySelector('.row-desc').value;
-                items.push({ itemId: itemId, name: name, qty: qty, price: parseFloat(row.querySelector('.row-price').value) || 0, tax: parseFloat(row.querySelector('.row-tax').value) || 0 });
+                const price = parseFloat(row.querySelector('.row-price').value) || 0; const tax = parseFloat(row.querySelector('.row-tax').value) || 0;
+                items.push({ itemId, name, qty, price, tax });
+                
+                backendSubtotal += (qty * price);
+                if (docTaxTiming === 'before') backendTax += (qty * price) * (tax/100);
+
                 if (!editId && itemId) {
                     const prod = storage.catalog.find(p => p.id === itemId);
                     if(prod) {
@@ -1174,12 +1179,28 @@
                     }
                 }
             });
+
+            let backendDisc = docDiscountType === 'percent' ? backendSubtotal * (docDiscountVal/100) : docDiscountVal;
+            if (docTaxTiming === 'after') {
+                let factor = backendSubtotal > 0 ? (backendSubtotal - backendDisc)/backendSubtotal : 0;
+                items.forEach(i => backendTax += (i.qty * i.price * factor) * (i.tax/100));
+            }
+
+            const docShippingVal = parseFloat(document.getElementById('doc-shipping-val').value) || 0;
+            const docPaidVal = parseFloat(document.getElementById('doc-paid-val').value) || 0;
+            
+            // Valores definitivos totales
+            const totalEstructurado = (backendSubtotal - backendDisc) + backendTax + docShippingVal;
+            const balanceEstructurado = totalEstructurado - docPaidVal;
+
             const doc = {
                 id: editId || 'd-' + Date.now(), businessId: selectedBusinessId, type: document.getElementById('doc-type').value, folio: document.getElementById('doc-folio').value,
                 dateEmission: document.getElementById('doc-date-emission').value, timeEmission: new Date().toLocaleTimeString('es-ES', {hour: '2-digit', minute:'2-digit'}), dateDue: document.getElementById('doc-date-due').value, paymentMethod: document.getElementById('doc-payment-method').value,
                 client: { name: document.getElementById('doc-client-name').value, tax: document.getElementById('doc-client-tax').value, email: document.getElementById('doc-client-email').value, phone: document.getElementById('doc-client-phone').value },
-                items: items, discountVal: parseFloat(document.getElementById('doc-discount-val').value) || 0, discountType: document.getElementById('doc-discount-type').value, taxTiming: document.getElementById('doc-tax-timing').value, shipping: parseFloat(document.getElementById('doc-shipping-val').value) || 0, paid: parseFloat(document.getElementById('doc-paid-val').value) || 0, signature: canvas.toDataURL(), docNotes: document.getElementById('doc-notes').value, total: parseFloat(document.getElementById('txt-calc-total').innerText.replace(/[^0-9.-]+/g,"")) || 0, balance: parseFloat(document.getElementById('txt-calc-balance').innerText.replace(/[^0-9.-]+/g,"")) || 0
+                items: items, discountVal: docDiscountVal, discountType: docDiscountType, taxTiming: docTaxTiming, shipping: docShippingVal, paid: docPaidVal, signature: canvas.toDataURL(), docNotes: document.getElementById('doc-notes').value, 
+                total: totalEstructurado, balance: balanceEstructurado // Estos aseguran que el valor de los usuarios secundarios siempre esté registrado.
             };
+
             if(editId) { const index = storage.documents.findIndex(d => d.id === editId); if(index !== -1) storage.documents[index] = doc; } else { storage.documents.unshift(doc); }
             saveStorage(); showToast("Documento mercantil archivado en el sistema."); changeView('dashboard');
         }
@@ -1187,11 +1208,15 @@
         function updateKPIs() {
             let totalInvoiced = 0, totalPaid = 0, balanceDue = 0, estimatesCount = 0;
             storage.documents.filter(d => d.businessId === storage.activeBusinessId).forEach(d => {
-                let sub = 0, tx = 0; d.items.forEach(i => { sub += i.qty * i.price; if(d.taxTiming==='before') tx += (i.qty*i.price)*(i.tax/100); });
-                let disc = d.discountType === 'percent' ? sub*(d.discountVal/100) : d.discountVal;
-                if(d.taxTiming==='after') { let f = sub > 0 ? (sub - disc)/sub : 0; d.items.forEach(i => { tx += (i.qty*i.price*f)*(i.tax/100); }); }
-                let total = (sub - disc) + tx + d.shipping;
-                if(d.type === 'Factura') { totalInvoiced += total; totalPaid += d.paid; balanceDue += (total - d.paid); } 
+                let calcSub = 0; let calcTx = 0;
+                d.items.forEach(i => { calcSub += i.qty * i.price; if(d.taxTiming === 'before') calcTx += (i.qty * i.price) * (i.tax/100); });
+                let discCalc = d.discountType === 'percent' ? calcSub * (d.discountVal/100) : d.discountVal;
+                if(d.taxTiming === 'after') { let f = calcSub > 0 ? (calcSub - discCalc)/calcSub : 0; d.items.forEach(i => calcTx += (i.qty * i.price * f) * (i.tax/100)); }
+                
+                let total = d.total !== undefined ? d.total : (calcSub - discCalc) + calcTx + (d.shipping||0);
+                let balance = d.balance !== undefined ? d.balance : total - (d.paid||0);
+
+                if(d.type === 'Factura') { totalInvoiced += total; totalPaid += d.paid; balanceDue += balance; } 
                 else if(d.type === 'Estimación') { estimatesCount++; } else if(d.type === 'Nota de Crédito') { totalInvoiced -= total; }
             });
             document.getElementById('kpi-total-invoiced').innerText = `$${totalInvoiced.toFixed(2)}`; document.getElementById('kpi-total-paid').innerText = `$${totalPaid.toFixed(2)}`;
@@ -1222,7 +1247,14 @@
             
             if(filtered.length === 0) { container.innerHTML = `<div class="p-8 text-center text-xs text-slate-400 bg-white rounded-2xl border">Ningún registro coincide.</div>`; return; }
             container.innerHTML = filtered.map(d => {
-                let sub = 0; d.items.forEach(i => sub += i.qty * i.price); let disc = d.discountType === 'percent' ? sub*(d.discountVal/100) : d.discountVal; let tx = 0; d.items.forEach(i => tx += (i.qty*i.price)*(i.tax/100)); let calcTotal = (sub - disc) + tx + d.shipping; let total = d.total !== undefined ? d.total : calcTotal; let balance = d.balance !== undefined ? d.balance : (total - d.paid);
+                // Cálculo de respaldo para documentos muy antiguos (pre-actualización)
+                let sub = 0; d.items.forEach(i => sub += i.qty * i.price); let disc = d.discountType === 'percent' ? sub*(d.discountVal/100) : d.discountVal; let tx = 0; d.items.forEach(i => tx += (i.qty*i.price)*(i.tax/100)); 
+                let calcTotal = (sub - disc) + tx + (d.shipping || 0); 
+                
+                // Se utiliza el valor registrado para mayor precisión
+                let total = d.total !== undefined ? d.total : calcTotal; 
+                let balance = d.balance !== undefined ? d.balance : (total - (d.paid||0));
+                
                 return `
                     <div class="bg-white p-4 rounded-xl border flex flex-col md:flex-row justify-between items-start md:items-center gap-3 relative">
                         <div>
@@ -1235,7 +1267,7 @@
                                 <div class="relative inline-block text-left">
                                     <button onclick="toggleDropdownActions(event, '${d.id}')" class="dropdown-trigger p-2 bg-slate-50 hover:bg-slate-100 rounded-lg text-slate-600 border flex items-center space-x-1 text-xs font-bold"><i data-lucide="file-text" class="w-4 h-4"></i><span>Acciones</span><i data-lucide="chevron-down" class="w-3 h-3"></i></button>
                                     <div id="drop-${d.id}" class="dropdown-menu hidden fixed md:absolute right-4 md:right-0 mt-2 w-48 bg-white border rounded-xl shadow-xl z-50 divide-y divide-slate-100 text-left">
-                                       <div class="py-1"><button onclick="shareDocument('${d.id}')" class="w-full px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center space-x-2"><i data-lucide="share-2" class="w-3.5 h-3.5 text-slate-500"></i><span>Compartir Documento</span></button></div>
+                                       <div class="py-1"><button onclick="shareDocumentAction('${d.id}')" class="w-full px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center space-x-2"><i data-lucide="share-2" class="w-3.5 h-3.5 text-slate-500"></i><span>Compartir Documento</span></button></div>
                                         <div class="py-1"><button onclick="exportToPDF('${d.id}')" class="w-full px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center space-x-2"><i data-lucide="file-pdf" class="w-3.5 h-3.5 text-rose-500"></i><span>Exportar PDF</span></button><button onclick="exportToDoc('${d.id}')" class="w-full px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center space-x-2"><i data-lucide="file-text" class="w-3.5 h-3.5 text-blue-500"></i><span>Exportar DOC</span></button><button onclick="exportToExcel('${d.id}')" class="w-full px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center space-x-2"><i data-lucide="sheet" class="w-3.5 h-3.5 text-emerald-500"></i><span>Exportar XLSX</span></button></div>
                                     </div>
                                 </div>
@@ -1257,12 +1289,17 @@
             
             let data = [];
             docs.forEach(d => {
+                let dTotal = d.total !== undefined ? d.total : 0;
+                let isCalculated = false;
+                
+                // Si la factura tiene subitems, sacamos su data
                 d.items.forEach(i => {
                     let qty = i.qty || 1;
                     let price = i.price || 0;
                     let sub = qty * price;
                     let taxAmount = sub * ((i.tax || 0) / 100);
-                    let totalAmount = sub + taxAmount; 
+                    let rowTotal = sub + taxAmount; 
+                    
                     data.push({
                         "Fecha": d.dateEmission,
                         "Hora": d.timeEmission || "-",
@@ -1270,9 +1307,9 @@
                         "Cliente": d.client.name,
                         "Servicio / Artículo": i.name,
                         "Método Pago": d.paymentMethod || 'No definido',
-                        "Monto sin Impuesto": sub.toFixed(2),
-                        "Monto Impuesto": taxAmount.toFixed(2),
-                        "Monto Total": totalAmount.toFixed(2)
+                        "Monto Línea Base": sub.toFixed(2),
+                        "Monto Impuesto Línea": taxAmount.toFixed(2),
+                        "Total del Comprobante": dTotal > 0 ? dTotal.toFixed(2) : rowTotal.toFixed(2)
                     });
                 });
             });
@@ -1294,14 +1331,14 @@
                 XLSX.writeFile(wb, `${filename}.xlsx`);
                 showToast("Archivo Excel exportado.");
             } else if (format === 'doc') {
-                let html = `<meta charset="utf-8"><h2>Facturas - ${month}</h2><table border="1" style="border-collapse: collapse; width: 100%; text-align: left;"><tr>${Object.keys(data[0]).map(h => `<th style="padding: 5px;">${h}</th>`).join('')}</tr>`;
+                let html = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset="utf-8"></head><body><h2>Facturas - ${month}</h2><table border="1" style="border-collapse: collapse; width: 100%; text-align: left;"><tr>${Object.keys(data[0]).map(h => `<th style="padding: 5px;">${h}</th>`).join('')}</tr>`;
                 data.forEach(r => { html += `<tr>${Object.values(r).map(v => `<td style="padding: 5px;">${v}</td>`).join('')}</tr>`; });
-                html += `</table>`;
+                html += `</table></body></html>`;
                 const blob = new Blob([html], { type: 'application/msword' });
                 const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `${filename}.doc`; link.click();
                 showToast("Archivo DOC exportado.");
             } else if (format === 'pdf') {
-                let html = `<div style="font-family: sans-serif; padding: 20px;"><h2>Facturas Detalladas - ${month}</h2><table style="width:100%; border-collapse: collapse; font-size: 10px;" border="1"><tr>${Object.keys(data[0]).map(h => `<th style="padding:6px; background:#f1f5f9;">${h}</th>`).join('')}</tr>`;
+                let html = `<div style="font-family: sans-serif; padding: 20px; width: 1000px; min-width: 1000px; box-sizing: border-box;"><h2>Facturas Detalladas - ${month}</h2><table style="width:100%; border-collapse: collapse; font-size: 10px;" border="1"><tr>${Object.keys(data[0]).map(h => `<th style="padding:6px; background:#f1f5f9;">${h}</th>`).join('')}</tr>`;
                 data.forEach(r => { html += `<tr>${Object.values(r).map(v => `<td style="padding:6px;">${v}</td>`).join('')}</tr>`; });
                 html += `</table></div>`;
                 const area = document.createElement('div'); area.innerHTML = html;
@@ -1318,10 +1355,13 @@
             }).join('');
             let discCalculated = doc.discountType === 'percent' ? subtotal * (doc.discountVal / 100) : doc.discountVal;
             if (doc.taxTiming === 'before') { doc.items.forEach(i => taxTotal += (i.qty * i.price) * (i.tax / 100)); } else { const factor = subtotal > 0 ? (subtotal - discCalculated) / subtotal : 0; doc.items.forEach(i => taxTotal += (i.qty * i.price * factor) * (i.tax / 100)); }
-            const grandTotal = doc.total !== undefined ? doc.total : (subtotal - discCalculated) + taxTotal + doc.shipping;
+            
+            const grandTotal = doc.total !== undefined ? doc.total : (subtotal - discCalculated) + taxTotal + (doc.shipping || 0);
             const finalBalance = doc.balance !== undefined ? doc.balance : (grandTotal - (doc.paid || 0));
+            
+            // Usamos width 800px para fijar el diseño y evitar recortes en celulares al generar el PDF.
             return `
-                <div style="font-family: 'Inter', sans-serif; max-width: 800px; margin: 0 auto; padding: 40px; color: #1e293b; background: white;">
+                <div style="font-family: 'Inter', sans-serif; width: 800px; min-width: 800px; box-sizing: border-box; margin: 0 auto; padding: 40px; color: #1e293b; background: white;">
                     <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 30px;">
                         <div style="display: flex; align-items: center; gap: 15px;">
                             ${business.logo ? `<img src="${business.logo}" style="max-height: 80px; max-width: 150px; object-fit: contain;" />` : `<div style="width: 60px; height: 60px; background: #f1f5f9; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #94a3b8; font-size: 10px;">LOGO</div>`}
@@ -1359,19 +1399,87 @@
             const doc = storage.documents.find(d => d.id === docId); if(!doc) return;
             const printArea = document.createElement('div'); printArea.innerHTML = generateDocumentPrintHTML(doc);
             const opt = { margin: 0, filename: `${doc.folio}_${doc.client.name.replace(/\s+/g, '_')}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
-            showToast("Procesando PDF..."); html2pdf().set(opt).from(printArea).save().then(() => showToast("Comprobante exportado."));
+            showToast("Procesando PDF (sin cortes ni recortes)..."); html2pdf().set(opt).from(printArea).save().then(() => showToast("Comprobante exportado."));
         }
-        function exportToDoc(docId) { showToast("Generando .doc..."); const doc = storage.documents.find(d => d.id === docId); if(!doc) return; const blob = new Blob([`COMPROBANTE\nFolio: ${doc.folio}\nTipo: ${doc.type}\nCliente: ${doc.client.name}`], { type: 'application/msword' }); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `${doc.folio}.doc`; link.click(); }
-        function exportToExcel(docId) { if(typeof XLSX === 'undefined') { showToast("Librería Excel no cargada.", "error"); return; } const doc = storage.documents.find(d => d.id === docId); if(!doc) return; showToast("Generando hoja de cálculo..."); const data = doc.items.map(i => ({"Concepto": i.name, "Cantidad": i.qty, "Precio Base": i.price, "Impuesto %": i.tax, "Total Línea": i.qty * i.price})); const ws = XLSX.utils.json_to_sheet(data); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Detalles"); XLSX.writeFile(wb, `${doc.folio}.xlsx`); }
 
-        function shareDocument(id) {
+        function exportToDoc(docId) { 
+            const doc = storage.documents.find(d => d.id === docId); if(!doc) return; 
+            showToast("Generando .doc exacto...");
+            const htmlContent = `
+            <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+            <head><meta charset='utf-8'><title>Comprobante</title></head>
+            <body style="width: 100%;">
+               ${generateDocumentPrintHTML(doc)}
+            </body>
+            </html>`;
+            const blob = new Blob([htmlContent], { type: 'application/msword' }); 
+            const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `${doc.folio}.doc`; link.click(); 
+        }
+
+        function exportToExcel(docId) { 
+            if(typeof XLSX === 'undefined') { showToast("Librería Excel no cargada.", "error"); return; } 
+            const doc = storage.documents.find(d => d.id === docId); if(!doc) return; 
+            showToast("Generando hoja de cálculo..."); 
+            
+            const data = doc.items.map(i => ({"Concepto": i.name, "Cantidad": i.qty, "Precio Base": i.price, "Impuesto %": i.tax, "Total Línea": i.qty * i.price})); 
+            // Añadimos una línea del monto total general a Excel
+            data.push({ "Concepto": "MONTO TOTAL GENERAL", "Cantidad": "", "Precio Base": "", "Impuesto %": "", "Total Línea": doc.total !== undefined ? doc.total.toFixed(2) : "" });
+            
+            const ws = XLSX.utils.json_to_sheet(data); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Detalles"); XLSX.writeFile(wb, `${doc.folio}.xlsx`); 
+        }
+
+        async function shareDocumentAction(id) {
             const d = storage.documents.find(doc => doc.id === id); if(!d) return;
-            const textPayload = `Comprobante Comercial: ${d.type} (Folio: ${d.folio}) - Cliente: ${d.client.name}. Generado a través de Gestor Pro ERP.`; const currentUrl = window.location.href; const encodedText = encodeURIComponent(textPayload + " Enlace: " + currentUrl);
-            const networks = [{ name: "WhatsApp", color: "bg-emerald-600", url: `https://api.whatsapp.com/send?text=${encodedText}` }, { name: "Telegram", color: "bg-sky-500", url: `https://tmsubmit.telegram.org/share/url?url=${encodeURIComponent(currentUrl)}&text=${encodedText}` }, { name: "Outlook", color: "bg-blue-600", url: `mailto:?subject=${encodeURIComponent(d.type + ' ' + d.folio)}&body=${encodedText}` }, { name: "Gmail", color: "bg-rose-500", url: `https://mail.google.com/mail/?view=cm&fs=1&su=${encodeURIComponent(d.type + ' ' + d.folio)}&body=${encodedText}` }, { name: "Facebook", color: "bg-indigo-700", url: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(currentUrl)}` }, { name: "Instagram", color: "bg-pink-600", isClipboard: true }, { name: "Google Drive", color: "bg-amber-500", url: "https://drive.google.com/" }, { name: "TikTok", color: "bg-slate-900", isClipboard: true }];
-            document.getElementById('share-modal-desc').innerText = `Selecciona la plataforma para transferir el folio: ${d.folio}`;
-            const grid = document.getElementById('share-buttons-grid');
-            grid.innerHTML = networks.map(net => { if(net.isClipboard) return `<button onclick="navigator.clipboard.writeText('${d.folio}'); showToast('Folio copiado');" class="w-full text-white font-bold p-2.5 rounded-xl transition-transform transform active:scale-95 ${net.color}">${net.name}</button>`; return `<a href="${net.url}" target="_blank" onclick="document.getElementById('share-modal').classList.add('hidden');" class="w-full text-center text-white font-bold p-2.5 rounded-xl transition-transform transform active:scale-95 block ${net.color}">${net.name}</a>`; }).join('');
-            document.getElementById('share-modal').classList.remove('hidden');
+            showToast("Generando y adjuntando archivo PDF... Por favor espera.");
+            
+            const printArea = document.createElement('div');
+            printArea.innerHTML = generateDocumentPrintHTML(d);
+            
+            const opt = { margin: 0, filename: `${d.folio}_${d.client.name.replace(/\s+/g, '_')}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
+            
+            try {
+                // Toma la copia del documento en Blob para compartirla
+                const pdfBlob = await html2pdf().set(opt).from(printArea).output('blob');
+                const file = new File([pdfBlob], opt.filename, { type: 'application/pdf' });
+                
+                const textPayload = `Adjunto Comprobante Comercial: ${d.type} (Folio: ${d.folio}) - Cliente: ${d.client.name}. Generado desde el ecosistema.`;
+                
+                // Intenta enviar nativamente con un archivo (Modern Mobile / PC app intents)
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    await navigator.share({
+                        title: `Documento ${d.folio}`,
+                        text: textPayload,
+                        files: [file]
+                    });
+                    showToast("PDF redireccionado a tu aplicación correctamente.");
+                } else {
+                    // Fallback para navegadores antiguos: Descarga el PDF directo y abre el modal
+                    const url = window.URL.createObjectURL(pdfBlob);
+                    const a = document.createElement('a'); a.style.display = 'none'; a.href = url; a.download = file.name;
+                    document.body.appendChild(a); a.click(); window.URL.revokeObjectURL(url);
+                    
+                    showToast("Tu navegador no soporta el envío directo de archivos. El PDF se descargó, adjúntalo a continuación.", "success");
+                    
+                    const currentUrl = window.location.href; const encodedText = encodeURIComponent(textPayload);
+                    const networks = [
+                        { name: "WhatsApp", color: "bg-emerald-600", url: `https://api.whatsapp.com/send?text=${encodedText}` }, 
+                        { name: "Telegram", color: "bg-sky-500", url: `https://tmsubmit.telegram.org/share/url?url=${encodeURIComponent(currentUrl)}&text=${encodedText}` }, 
+                        { name: "Outlook", color: "bg-blue-600", url: `mailto:?subject=${encodeURIComponent(d.type + ' ' + d.folio)}&body=${encodedText}` }, 
+                        { name: "Gmail", color: "bg-rose-500", url: `https://mail.google.com/mail/?view=cm&fs=1&su=${encodeURIComponent(d.type + ' ' + d.folio)}&body=${encodedText}` }, 
+                        { name: "Copiar Nombre (Instagram/FB)", color: "bg-indigo-700", isClipboard: true }
+                    ];
+                    document.getElementById('share-modal-desc').innerText = `Selecciona tu canal preferido y adjunta manualmente el PDF que acaba de descargarse:`;
+                    const grid = document.getElementById('share-buttons-grid');
+                    grid.innerHTML = networks.map(net => { 
+                        if(net.isClipboard) return `<button onclick="navigator.clipboard.writeText('${d.folio}'); showToast('Nombre copiado'); document.getElementById('share-modal').classList.add('hidden');" class="w-full text-white font-bold p-2.5 rounded-xl transition-transform transform active:scale-95 ${net.color}">${net.name}</button>`; 
+                        return `<a href="${net.url}" target="_blank" onclick="document.getElementById('share-modal').classList.add('hidden');" class="w-full text-center text-white font-bold p-2.5 rounded-xl transition-transform transform active:scale-95 block ${net.color}">${net.name}</a>`; 
+                    }).join('');
+                    document.getElementById('share-modal').classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error(error);
+                showToast("Hubo un error al generar la copia del documento.", "error");
+            }
         }
 
         function exportBackupData() {
@@ -1830,7 +1938,7 @@
                 let mItbms = m.itbms !== undefined ? m.itbms : 0;
                 return `<tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 8px; font-mono; font-size: 11px;">${m.date} ${m.time||''}</td><td style="padding: 8px;"><b>${m.concept}</b></td><td style="padding: 8px;">${m.recipient}</td><td style="padding: 8px;">${m.bankName || '-'} ${m.bankAccount ? `(${m.bankAccount})` : ''}</td><td style="padding: 8px; text-align: right; color: #475569;">$${mBruto.toFixed(2)}</td><td style="padding: 8px; text-align: right; color: #475569;">$${mItbms.toFixed(2)}</td><td style="padding: 8px; text-align: right; color: #e11d48; font-weight: bold;">$${m.amount.toFixed(2)}</td></tr>`; 
             }).join('');
-            return `<div style="padding: 30px; font-family: 'Inter', sans-serif; font-size: 12px; max-width: 800px; margin: 0 auto; background: white; color: #1e293b;"><div style="display: flex; justify-content: space-between; border-bottom: 2px solid #0f172a; padding-bottom: 15px; margin-bottom: 20px;"><div><h1 style="margin: 0; font-size: 18px; font-weight: 900; text-transform: uppercase;">${business.name}</h1><p style="margin: 2px 0; color: #64748b;">ID/RUC: ${business.tax || 'N/A'}</p></div><div style="text-align: right;"><h2 style="margin: 0; color: #4f46e5; font-size: 16px; font-weight: bold;">Cerrado de Gastos Varios</h2><p style="margin: 2px 0; font-weight: 500; color: #475569;">${titlePeriod}</p></div></div><table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 11px;"><thead><tr style="background: #f1f5f9; border-bottom: 2px solid #cbd5e1;"><th style="padding: 8px;">Fecha/Hora</th><th style="padding: 8px;">Concepto</th><th style="padding: 8px;">Beneficiario</th><th style="padding: 8px;">Canal / Cuenta</th><th style="padding: 8px; text-align: right;">Monto Bruto</th><th style="padding: 8px; text-align: right;">ITBMS</th><th style="padding: 8px; text-align: right;">Total</th></tr></thead><tbody>${rowsHtml}</tbody></table><div style="display: flex; justify-content: flex-end; margin-top: 20px; border-top: 2px solid #e2e8f0; padding-top: 10px;"><div style="font-size: 14px; font-weight: 900;">Monto Total Egresado: <span style="color: #ef4444;">$${totalMonto.toFixed(2)}</span></div></div></div>`;
+            return `<div style="padding: 30px; font-family: 'Inter', sans-serif; font-size: 12px; width: 800px; min-width: 800px; box-sizing: border-box; margin: 0 auto; background: white; color: #1e293b;"><div style="display: flex; justify-content: space-between; border-bottom: 2px solid #0f172a; padding-bottom: 15px; margin-bottom: 20px;"><div><h1 style="margin: 0; font-size: 18px; font-weight: 900; text-transform: uppercase;">${business.name}</h1><p style="margin: 2px 0; color: #64748b;">ID/RUC: ${business.tax || 'N/A'}</p></div><div style="text-align: right;"><h2 style="margin: 0; color: #4f46e5; font-size: 16px; font-weight: bold;">Cerrado de Gastos Varios</h2><p style="margin: 2px 0; font-weight: 500; color: #475569;">${titlePeriod}</p></div></div><table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 11px;"><thead><tr style="background: #f1f5f9; border-bottom: 2px solid #cbd5e1;"><th style="padding: 8px;">Fecha/Hora</th><th style="padding: 8px;">Concepto</th><th style="padding: 8px;">Beneficiario</th><th style="padding: 8px;">Canal / Cuenta</th><th style="padding: 8px; text-align: right;">Monto Bruto</th><th style="padding: 8px; text-align: right;">ITBMS</th><th style="padding: 8px; text-align: right;">Total</th></tr></thead><tbody>${rowsHtml}</tbody></table><div style="display: flex; justify-content: flex-end; margin-top: 20px; border-top: 2px solid #e2e8f0; padding-top: 10px;"><div style="font-size: 14px; font-weight: 900;">Monto Total Egresado: <span style="color: #ef4444;">$${totalMonto.toFixed(2)}</span></div></div></div>`;
         }
 
         function exportMiscData(data, format, title) {
@@ -1872,9 +1980,9 @@
                 const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `${filename}.csv`; link.click();
                 showToast("Archivo CSV exportado.");
             } else if (format === 'doc') {
-                let html = `<meta charset="utf-8"><h2>${title.replace(/_/g, ' ')}</h2><table border="1" style="border-collapse: collapse; width: 100%; text-align: left;"><tr>${Object.keys(mappedData[0]).map(h => `<th style="padding: 5px;">${h}</th>`).join('')}</tr>`;
+                let html = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset="utf-8"></head><body><h2>${title.replace(/_/g, ' ')}</h2><table border="1" style="border-collapse: collapse; width: 100%; text-align: left;"><tr>${Object.keys(mappedData[0]).map(h => `<th style="padding: 5px;">${h}</th>`).join('')}</tr>`;
                 mappedData.forEach(r => { html += `<tr>${Object.values(r).map(v => `<td style="padding: 5px;">${v}</td>`).join('')}</tr>`; });
-                html += `</table>`;
+                html += `</table></body></html>`;
                 const blob = new Blob([html], { type: 'application/msword' });
                 const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `${filename}.doc`; link.click();
                 showToast("Archivo DOC exportado.");
@@ -2005,10 +2113,11 @@
             let monthlyExpenses = { "01":0, "02":0, "03":0, "04":0, "05":0, "06":0, "07":0, "08":0, "09":0, "10":0, "11":0, "12":0 };
 
             storage.documents.filter(d => d.businessId === storage.activeBusinessId && d.dateEmission.startsWith(filter)).forEach(d => {
-                let sub = 0, tx = 0;
-                d.items.forEach(i => { let rowNet = i.qty * i.price; sub += rowNet; if(d.type === 'Factura') productVolume[i.name] = (productVolume[i.name] || 0) + i.qty; });
-                let disc = d.discountType === 'percent' ? sub*(d.discountVal/100) : d.discountVal;
-                d.items.forEach(i => tx += (i.qty*i.price)*(i.tax/100)); let total = (sub - disc) + tx + d.shipping;
+                let calcSub = 0; let calcTx = 0;
+                d.items.forEach(i => { calcSub += i.qty * i.price; if(d.type === 'Factura') productVolume[i.name] = (productVolume[i.name] || 0) + i.qty; if(d.taxTiming === 'before') calcTx += (i.qty * i.price) * (i.tax/100); });
+                let discCalc = d.discountType === 'percent' ? calcSub * (d.discountVal/100) : d.discountVal;
+                if(d.taxTiming === 'after') { let f = calcSub > 0 ? (calcSub - discCalc)/calcSub : 0; d.items.forEach(i => calcTx += (i.qty * i.price * f) * (i.tax/100)); }
+                let total = d.total !== undefined ? d.total : (calcSub - discCalc) + calcTx + (d.shipping||0);
                 
                 if(d.type === 'Factura') { 
                     sales += total; 
@@ -2166,7 +2275,6 @@
         function syncUsersBaaS() {
             const action = prompt("Sincronización de Usuarios:\n\n1. Escribe 'EXPORTAR' para generar un código y dar acceso a tus usuarios con sus permisos.\n2. Escribe 'IMPORTAR' para ingresar el código de registro que te generó un usuario nuevo.");
             if(action && action.toUpperCase() === 'EXPORTAR') {
-                // Se eliminan los logos pesados del objeto de negocios para acortar drásticamente el código Base64
                 const shortBusinesses = storage.businesses.map(b => {
                     const copy = { ...b };
                     delete copy.logo;
