@@ -1178,7 +1178,7 @@
                 id: editId || 'd-' + Date.now(), businessId: selectedBusinessId, type: document.getElementById('doc-type').value, folio: document.getElementById('doc-folio').value,
                 dateEmission: document.getElementById('doc-date-emission').value, timeEmission: new Date().toLocaleTimeString('es-ES', {hour: '2-digit', minute:'2-digit'}), dateDue: document.getElementById('doc-date-due').value, paymentMethod: document.getElementById('doc-payment-method').value,
                 client: { name: document.getElementById('doc-client-name').value, tax: document.getElementById('doc-client-tax').value, email: document.getElementById('doc-client-email').value, phone: document.getElementById('doc-client-phone').value },
-                items: items, discountVal: parseFloat(document.getElementById('doc-discount-val').value) || 0, discountType: document.getElementById('doc-discount-type').value, taxTiming: document.getElementById('doc-tax-timing').value, shipping: parseFloat(document.getElementById('doc-shipping-val').value) || 0, paid: parseFloat(document.getElementById('doc-paid-val').value) || 0, signature: canvas.toDataURL(), docNotes: document.getElementById('doc-notes').value
+                items: items, discountVal: parseFloat(document.getElementById('doc-discount-val').value) || 0, discountType: document.getElementById('doc-discount-type').value, taxTiming: document.getElementById('doc-tax-timing').value, shipping: parseFloat(document.getElementById('doc-shipping-val').value) || 0, paid: parseFloat(document.getElementById('doc-paid-val').value) || 0, signature: canvas.toDataURL(), docNotes: document.getElementById('doc-notes').value, total: parseFloat(document.getElementById('txt-calc-total').innerText.replace(/[^0-9.-]+/g,"")) || 0, balance: parseFloat(document.getElementById('txt-calc-balance').innerText.replace(/[^0-9.-]+/g,"")) || 0
             };
             if(editId) { const index = storage.documents.findIndex(d => d.id === editId); if(index !== -1) storage.documents[index] = doc; } else { storage.documents.unshift(doc); }
             saveStorage(); showToast("Documento mercantil archivado en el sistema."); changeView('dashboard');
@@ -1222,7 +1222,7 @@
             
             if(filtered.length === 0) { container.innerHTML = `<div class="p-8 text-center text-xs text-slate-400 bg-white rounded-2xl border">Ningún registro coincide.</div>`; return; }
             container.innerHTML = filtered.map(d => {
-                let sub = 0; d.items.forEach(i => sub += i.qty * i.price); let disc = d.discountType === 'percent' ? sub*(d.discountVal/100) : d.discountVal; let tx = 0; d.items.forEach(i => tx += (i.qty*i.price)*(i.tax/100)); let total = (sub - disc) + tx + d.shipping;
+                let sub = 0; d.items.forEach(i => sub += i.qty * i.price); let disc = d.discountType === 'percent' ? sub*(d.discountVal/100) : d.discountVal; let tx = 0; d.items.forEach(i => tx += (i.qty*i.price)*(i.tax/100)); let calcTotal = (sub - disc) + tx + d.shipping; let total = d.total !== undefined ? d.total : calcTotal; let balance = d.balance !== undefined ? d.balance : (total - d.paid);
                 return `
                     <div class="bg-white p-4 rounded-xl border flex flex-col md:flex-row justify-between items-start md:items-center gap-3 relative">
                         <div>
@@ -1230,7 +1230,7 @@
                             <p class="text-xs text-slate-500 mt-1 font-medium">${d.client.name} &middot; <span class="font-mono text-[11px]">${d.dateEmission} ${d.timeEmission ? '- ' + d.timeEmission : ''}</span></p>
                         </div>
                         <div class="flex items-center space-x-4 w-full md:w-auto justify-between md:justify-end">
-                            <div class="text-right"><div class="text-xs font-black text-slate-900">$${total.toFixed(2)}</div><div class="text-[10px] text-slate-400 font-bold uppercase">${d.type === 'Estimación' ? 'Proforma' : 'CxC: $' + (total - d.paid).toFixed(2)}</div></div>
+                            <div class="text-right"><div class="text-xs font-black text-slate-900">$${total.toFixed(2)}</div><div class="text-[10px] text-slate-400 font-bold uppercase">${d.type === 'Estimación' ? 'Proforma' : 'CxC: $' + balance.toFixed(2)}</div></div>
                             <div class="flex space-x-1 relative">
                                 <div class="relative inline-block text-left">
                                     <button onclick="toggleDropdownActions(event, '${d.id}')" class="dropdown-trigger p-2 bg-slate-50 hover:bg-slate-100 rounded-lg text-slate-600 border flex items-center space-x-1 text-xs font-bold"><i data-lucide="file-text" class="w-4 h-4"></i><span>Acciones</span><i data-lucide="chevron-down" class="w-3 h-3"></i></button>
@@ -1318,7 +1318,8 @@
             }).join('');
             let discCalculated = doc.discountType === 'percent' ? subtotal * (doc.discountVal / 100) : doc.discountVal;
             if (doc.taxTiming === 'before') { doc.items.forEach(i => taxTotal += (i.qty * i.price) * (i.tax / 100)); } else { const factor = subtotal > 0 ? (subtotal - discCalculated) / subtotal : 0; doc.items.forEach(i => taxTotal += (i.qty * i.price * factor) * (i.tax / 100)); }
-            const grandTotal = (subtotal - discCalculated) + taxTotal + doc.shipping;
+            const grandTotal = doc.total !== undefined ? doc.total : (subtotal - discCalculated) + taxTotal + doc.shipping;
+            const finalBalance = doc.balance !== undefined ? doc.balance : (grandTotal - (doc.paid || 0));
             return `
                 <div style="font-family: 'Inter', sans-serif; max-width: 800px; margin: 0 auto; padding: 40px; color: #1e293b; background: white;">
                     <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 30px;">
@@ -1343,7 +1344,7 @@
                             <div style="display: flex; justify-content: space-between; padding: 6px 0; font-size: 12px; color: #475569;"><span>Flete / Logística:</span><span>$${(doc.shipping || 0).toFixed(2)}</span></div>
                             <div style="display: flex; justify-content: space-between; padding: 6px 0; font-size: 12px; color: #475569;"><span>Impuestos Consolidados:</span><span>$${taxTotal.toFixed(2)}</span></div>
                             <div style="display: flex; justify-content: space-between; padding: 12px 0; margin-top: 10px; border-top: 2px solid #e2e8f0; font-size: 16px; font-weight: 900; color: #0f172a;"><span>MONTO TOTAL A PAGAR:</span><span style="color: #4f46e5;">$${grandTotal.toFixed(2)}</span></div>
-                            <div style="text-align: right; font-size: 11px; color: #64748b; margin-top: 5px;">Saldo Pendiente: $${(grandTotal - (doc.paid || 0)).toFixed(2)}</div>
+                            <div style="text-align: right; font-size: 11px; color: #64748b; margin-top: 5px;">Saldo Pendiente: $${finalBalance.toFixed(2)}</div>
                         </div>
                     </div>
                     <div style="display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px solid #e2e8f0; padding-top: 20px;">
