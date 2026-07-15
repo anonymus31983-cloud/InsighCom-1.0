@@ -1216,16 +1216,11 @@
             if(filtered.length === 0) { container.innerHTML = `<div class="p-8 text-center text-xs text-slate-400 bg-white rounded-2xl border">Ningún registro coincide.</div>`; return; }
             container.innerHTML = filtered.map(d => {
                 let sub = 0; d.items.forEach(i => sub += i.qty * i.price); let disc = d.discountType === 'percent' ? sub*(d.discountVal/100) : d.discountVal; let tx = 0; d.items.forEach(i => tx += (i.qty*i.price)*(i.tax/100)); let calcTotal = (sub - disc) + tx + d.shipping; let total = d.total !== undefined ? d.total : calcTotal; let balance = d.balance !== undefined ? d.balance : (total - d.paid);
-                let biz = storage.businesses.find(b => b.id === d.businessId);
-                let logoHtml = biz && biz.logo ? `<img src="${biz.logo}" class="h-10 w-10 object-contain rounded-lg border p-1 bg-slate-50 shrink-0"/>` : `<div class="h-10 w-10 bg-slate-100 rounded-lg flex items-center justify-center text-slate-400 shrink-0"><i data-lucide="building-2" class="w-4 h-4"></i></div>`;
                 return `
                     <div class="bg-white p-4 rounded-xl border flex flex-col md:flex-row justify-between items-start md:items-center gap-3 relative">
-                        <div class="flex items-center gap-3">
-                            ${logoHtml}
-                            <div>
-                                <div class="flex items-center space-x-2"><span class="px-2 py-0.5 rounded text-[9px] font-black uppercase ${d.type==='Factura'?'bg-emerald-50 text-emerald-700':'bg-indigo-50 text-indigo-700'}">${d.type}</span><span class="text-xs font-bold text-slate-900">${d.folio}</span></div>
-                                <p class="text-xs text-slate-500 mt-1 font-medium">${d.client.name} &middot; <span class="font-mono text-[11px]">${d.dateEmission} ${d.timeEmission ? '- ' + d.timeEmission : ''}</span></p>
-                            </div>
+                        <div>
+                            <div class="flex items-center space-x-2"><span class="px-2 py-0.5 rounded text-[9px] font-black uppercase ${d.type==='Factura'?'bg-emerald-50 text-emerald-700':'bg-indigo-50 text-indigo-700'}">${d.type}</span><span class="text-xs font-bold text-slate-900">${d.folio}</span></div>
+                            <p class="text-xs text-slate-500 mt-1 font-medium">${d.client.name} &middot; <span class="font-mono text-[11px]">${d.dateEmission} ${d.timeEmission ? '- ' + d.timeEmission : ''}</span></p>
                         </div>
                         <div class="flex items-center space-x-4 w-full md:w-auto justify-between md:justify-end">
                             <div class="text-right"><div class="text-xs font-black text-slate-900">$${total.toFixed(2)}</div><div class="text-[10px] text-slate-400 font-bold uppercase">${d.type === 'Estimación' ? 'Proforma' : 'CxC: $' + balance.toFixed(2)}</div></div>
@@ -2280,7 +2275,7 @@
             if(action && action.toUpperCase() === 'EXPORTAR') {
                 const shortBusinesses = storage.businesses.map(b => {
                     const copy = { ...b };
-                    delete copy.logo;
+                    // Se remueve "delete copy.logo;" para permitir que el logo se sincronice a los usuarios
                     return copy;
                 });
                 const payload = { type: 'admin_export', users: storage.users, businesses: shortBusinesses };
