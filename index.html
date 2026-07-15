@@ -1311,12 +1311,7 @@
         }
 
         function generateDocumentPrintHTML(doc) {
-            let activeBizId = doc.businessId || storage.activeBusinessId;
-            if (storage.currentUser && storage.currentUser.role !== 'admin' && storage.currentUser.assignedBusinessId) {
-                activeBizId = storage.currentUser.assignedBusinessId;
-            }
-            const business = storage.businesses.find(b => b.id === activeBizId) || storage.businesses[0] || {name: "Empresa", tax: "", email: "", phone: "", logo: ""}; 
-            let subtotal = 0, taxTotal = 0;
+            const business = storage.businesses.find(b => b.id === doc.businessId) || storage.businesses.find(b => b.userId === storage.currentUser.id); let subtotal = 0, taxTotal = 0;
             const rowsHtml = doc.items.map(i => {
                 const rowNet = i.qty * i.price; subtotal += rowNet;
                 return `<tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 12px 8px; font-size: 12px; color: #1e293b;">${i.name}</td><td style="padding: 12px 8px; text-align: center; font-size: 12px; color: #475569;">${i.qty}</td><td style="padding: 12px 8px; text-align: right; font-size: 12px; color: #475569;">$${i.price.toFixed(2)}</td><td style="padding: 12px 8px; text-align: center; font-size: 12px; color: #475569;">${i.tax}%</td><td style="padding: 12px 8px; text-align: right; font-size: 12px; font-weight: bold; color: #0f172a;">$${rowNet.toFixed(2)}</td></tr>`;
@@ -1828,12 +1823,7 @@
         }
 
         function generateMiscPrintHTML(expenses, titlePeriod) {
-            let activeBizId = storage.activeBusinessId;
-            if (storage.currentUser && storage.currentUser.role !== 'admin' && storage.currentUser.assignedBusinessId) {
-                activeBizId = storage.currentUser.assignedBusinessId;
-            }
-            const business = storage.businesses.find(b => b.id === activeBizId) || storage.businesses[0] || {name: "Empresa", tax: "", logo: ""}; 
-            let totalMonto = 0;
+            const business = storage.businesses.find(b => b.id === storage.activeBusinessId) || storage.businesses.find(b => b.userId === storage.currentUser.id); let totalMonto = 0;
             const rowsHtml = expenses.map(m => { 
                 totalMonto += m.amount; 
                 let mBruto = m.bruto !== undefined ? m.bruto : m.amount;
@@ -1950,11 +1940,7 @@
             let data = storage.cardex.filter(c => c.businessId === storage.activeBusinessId);
             if(data.length === 0) { showToast("No hay movimientos registrados en la bitácora.", "error"); return; }
             showToast("Generando reporte PDF del Kárdex...");
-            let activeBizId = storage.activeBusinessId;
-            if (storage.currentUser && storage.currentUser.role !== 'admin' && storage.currentUser.assignedBusinessId) {
-                activeBizId = storage.currentUser.assignedBusinessId;
-            }
-            const business = storage.businesses.find(b => b.id === activeBizId) || storage.businesses[0] || {name: "Empresa", tax: "", logo: ""}; 
+            const business = storage.businesses.find(b => b.id === storage.activeBusinessId) || storage.businesses.find(b => b.userId === storage.currentUser.id);
             const rowsHtml = data.map(c => `<tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 8px; font-family: monospace; font-size: 11px;">${c.timestamp}</td><td style="padding: 8px;"><b>${c.itemName}</b></td><td style="padding: 8px; text-align: center;">${c.type}</td><td style="padding: 8px; text-align: center; font-weight: bold; color: ${c.qty > 0 ? '#10b981' : '#f43f5e'}">${c.qty > 0 ? '+' : ''}${c.qty}</td></tr>`).join('');
             const htmlString = `<div style="padding: 30px; font-family: 'Inter', sans-serif; font-size: 12px; max-width: 800px; margin: 0 auto; background: white; color: #1e293b;"><div style="display: flex; justify-content: space-between; border-bottom: 2px solid #0f172a; padding-bottom: 15px; margin-bottom: 20px;"><div><h1 style="margin: 0; font-size: 18px; font-weight: 900; text-transform: uppercase;">${business.name}</h1><p style="margin: 2px 0; color: #64748b;">ID/RUC: ${business.tax || 'N/A'}</p></div><div style="text-align: right;"><h2 style="margin: 0; color: #4f46e5; font-size: 16px; font-weight: bold;">Bitácora de Movimientos (Kárdex)</h2><p style="margin: 2px 0; font-weight: 500; color: #475569;">Historial de Existencias y Auditoría</p></div></div><table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 11px;"><thead><tr style="background: #f1f5f9; border-bottom: 2px solid #cbd5e1;"><th style="padding: 8px;">Fecha de Operación</th><th style="padding: 8px;">Artículo Afectado</th><th style="padding: 8px; text-align: center;">Tipo de Movimiento</th><th style="padding: 8px; text-align: center;">Cantidad Flujo</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
             const area = document.createElement('div');
@@ -2174,20 +2160,6 @@
                     showToast("Usuario eliminado. Se descargó el backup de su actividad automáticamente.");
                     renderUsersList();
                 }
-            }
-        }
-        
-        function updateDashboardHeader() {
-            let activeBizId = storage.activeBusinessId;
-            if (storage.currentUser && storage.currentUser.role !== 'admin' && storage.currentUser.assignedBusinessId) {
-                activeBizId = storage.currentUser.assignedBusinessId;
-            }
-            const biz = storage.businesses.find(b => b.id === activeBizId) || storage.businesses[0];
-            if (biz) {
-                document.getElementById('dashboard-active-biz-name').innerText = biz.name || 'Sin Empresa';
-                document.getElementById('dashboard-active-biz-ruc').innerText = biz.tax ? 'RUC/ID: ' + biz.tax : 'Sin Identificación';
-                document.getElementById('dashboard-logo-wrapper').innerHTML = biz.logo ? `<img src="${biz.logo}" class="max-w-full max-h-full object-contain rounded-lg"/>` : `<i data-lucide="building-2" class="w-6 h-6 text-slate-400"></i>`;
-                lucide.createIcons();
             }
         }
         
