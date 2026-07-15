@@ -1027,7 +1027,6 @@
             const companyLogo = document.getElementById('sidebar-company-logo');
             const companyNameLabel = document.getElementById('sidebar-company-name');
             
-            // Si no hay empresa activa (ej. usuario sin empresa asignada)
             if (!storage.activeBusinessId) {
                 companyLogo.classList.add('hidden');
                 defaultIcon.classList.remove('hidden');
@@ -1036,22 +1035,17 @@
                 return;
             }
 
-            // Buscamos la empresa activa actual
             const activeBusiness = storage.businesses.find(b => b.id === storage.activeBusinessId);
             
             if (activeBusiness) {
-                // Actualizamos el nombre en la barra lateral
                 companyNameLabel.innerText = activeBusiness.name;
 
-                // Si la empresa tiene logo (Base64)
                 if (activeBusiness.logo) {
                     companyLogo.src = activeBusiness.logo;
                     companyLogo.classList.remove('hidden');
                     defaultIcon.classList.add('hidden');
-                    // Le damos fondo blanco al contenedor para que el logo resalte bien
                     logoWrapper.className = "bg-white p-0.5 rounded-xl flex items-center justify-center shrink-0 w-9 h-9 border border-slate-200 shadow-sm"; 
                 } else {
-                    // Si no hay logo, volvemos al icono por defecto
                     companyLogo.classList.add('hidden');
                     defaultIcon.classList.remove('hidden');
                     logoWrapper.className = "bg-indigo-600 p-2 rounded-xl text-white flex items-center justify-center shrink-0 w-9 h-9";
