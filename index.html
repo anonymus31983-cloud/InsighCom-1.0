@@ -1320,6 +1320,9 @@
 
         function generateDocumentPrintHTML(doc) {
             const business = storage.businesses.find(b => b.id === doc.businessId) || storage.businesses.find(b => b.userId === storage.currentUser.id); let subtotal = 0, taxTotal = 0;
+            let isStandardUser = storage.currentUser.role !== 'admin';
+            let logoSrc = business.logo ? business.logo : (isStandardUser ? '1.jpg' : null);
+            let logoHtml = logoSrc ? `<img src="${logoSrc}" style="max-height: 80px; max-width: 150px; object-fit: contain;" />` : `<div style="width: 60px; height: 60px; background: #f1f5f9; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #94a3b8; font-size: 10px;">LOGO</div>`;
             const rowsHtml = doc.items.map(i => {
                 const rowNet = i.qty * i.price; subtotal += rowNet;
                 return `<tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 12px 8px; font-size: 12px; color: #1e293b;">${i.name}</td><td style="padding: 12px 8px; text-align: center; font-size: 12px; color: #475569;">${i.qty}</td><td style="padding: 12px 8px; text-align: right; font-size: 12px; color: #475569;">$${i.price.toFixed(2)}</td><td style="padding: 12px 8px; text-align: center; font-size: 12px; color: #475569;">${i.tax}%</td><td style="padding: 12px 8px; text-align: right; font-size: 12px; font-weight: bold; color: #0f172a;">$${rowNet.toFixed(2)}</td></tr>`;
@@ -1332,7 +1335,7 @@
                 <div style="font-family: 'Inter', sans-serif; max-width: 800px; margin: 0 auto; padding: 40px; color: #1e293b; background: white;">
                     <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 30px;">
                         <div style="display: flex; align-items: center; gap: 15px;">
-                            ${business.logo ? `<img src="${business.logo}" style="max-height: 80px; max-width: 150px; object-fit: contain;" />` : `<div style="width: 60px; height: 60px; background: #f1f5f9; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #94a3b8; font-size: 10px;">LOGO</div>`}
+                            ${logoHtml}
                             <div><h1 style="margin: 0; font-size: 22px; font-weight: 900; color: #0f172a;">${business.name}</h1><p style="margin: 4px 0 0; font-size: 12px; color: #64748b;">RUC/ID: ${business.tax || 'N/A'}</p><p style="margin: 2px 0 0; font-size: 12px; color: #64748b;">${business.email || 'Sin correo'} | ${business.phone || 'Sin teléfono'}</p></div>
                         </div>
                         <div style="text-align: right;"><h2 style="margin: 0; font-size: 26px; font-weight: 900; color: #4f46e5; text-transform: uppercase;">${doc.type}</h2><p style="margin: 5px 0 0; font-size: 14px; font-weight: bold; color: #334155;"># ${doc.folio}</p><p style="margin: 4px 0 0; font-size: 11px; color: #64748b;">Issued: ${doc.dateEmission}</p><p style="margin: 2px 0 0; font-size: 11px; color: #64748b;">Due: ${doc.dateDue}</p></div>
@@ -1397,7 +1400,9 @@
             let total = doc.total !== undefined ? doc.total : ((sub - disc) + tx + doc.shipping);
             
             const biz = storage.businesses.find(b => b.id === doc.businessId) || storage.businesses.find(b => b.userId === storage.currentUser.id);
-            let logoHtml = biz && biz.logo ? `<tr><td colspan="5" style="text-align: center; height: 100px;"><img src="${biz.logo}" height="80" /></td></tr>` : '';
+            let isStandardUser = storage.currentUser.role !== 'admin';
+            let logoSrc = biz && biz.logo ? biz.logo : (isStandardUser ? '1.jpg' : null);
+            let logoHtml = logoSrc ? `<tr><td colspan="5" style="text-align: center; height: 100px;"><img src="${logoSrc}" height="80" /></td></tr>` : '';
 
             let html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
             <head><meta charset="utf-8"></head>
@@ -2080,6 +2085,8 @@
 
         function renderBusinessesList() {
             let userBusinesses = [];
+            let isStandardUser = storage.currentUser.role !== 'admin';
+
             if (storage.currentUser.role === 'admin') {
                 userBusinesses = storage.businesses;
             } else {
@@ -2090,9 +2097,13 @@
                 }
             }
             
-            document.getElementById('businesses-grid-container').innerHTML = userBusinesses.map(b => `<div class="bg-white p-4 rounded-2xl border flex justify-between items-center shadow-xs"><div class="flex items-center space-x-3">${b.logo ? `<img src="${b.logo}" class="h-10 w-10 object-contain rounded border p-1 bg-slate-50"/>` : `<div class="h-10 w-10 bg-slate-100 rounded flex items-center justify-center text-slate-400"><i data-lucide="building-2" class="w-4 h-4"></i></div>`}<div><h4 class="text-xs font-black text-slate-800">${b.name}</h4><p class="text-[10px] text-slate-400 mt-0.5">RUC: ${b.tax || 'N/A'} &middot; Correo: ${b.email||'N/A'}</p></div></div>` + 
-            (storage.currentUser.role === 'admin' ? `<div class="flex space-x-1"><button onclick="openModalForm('business', '${b.id}')" class="text-indigo-600 p-2 hover:bg-indigo-50 rounded-lg"><i data-lucide="edit" class="w-4 h-4"></i></button><button onclick="if(confirm('¿Está seguro de eliminar esta empresa?')) { if(storage.businesses.length<=1){alert('Debe quedar al menos una empresa');return;} storage.businesses=storage.businesses.filter(item=>item.id!=='${b.id}'); if(storage.activeBusinessId==='${b.id}') storage.activeBusinessId=storage.businesses[0].id; saveStorage(); refreshBusinessSelector(); renderBusinessesList(); }" class="text-rose-500 p-2 hover:bg-rose-50 rounded-lg"><i data-lucide="trash" class="w-4 h-4"></i></button></div>` : '') + 
-            `</div>`).join(''); lucide.createIcons();
+            document.getElementById('businesses-grid-container').innerHTML = userBusinesses.map(b => {
+                let logoSrc = b.logo ? b.logo : (isStandardUser ? '1.jpg' : null);
+                let logoHtml = logoSrc ? `<img src="${logoSrc}" class="h-10 w-10 object-contain rounded border p-1 bg-slate-50"/>` : `<div class="h-10 w-10 bg-slate-100 rounded flex items-center justify-center text-slate-400"><i data-lucide="building-2" class="w-4 h-4"></i></div>`;
+                return `<div class="bg-white p-4 rounded-2xl border flex justify-between items-center shadow-xs"><div class="flex items-center space-x-3">${logoHtml}<div><h4 class="text-xs font-black text-slate-800">${b.name}</h4><p class="text-[10px] text-slate-400 mt-0.5">RUC: ${b.tax || 'N/A'} &middot; Correo: ${b.email||'N/A'}</p></div></div>` + 
+                (storage.currentUser.role === 'admin' ? `<div class="flex space-x-1"><button onclick="openModalForm('business', '${b.id}')" class="text-indigo-600 p-2 hover:bg-indigo-50 rounded-lg"><i data-lucide="edit" class="w-4 h-4"></i></button><button onclick="if(confirm('¿Está seguro de eliminar esta empresa?')) { if(storage.businesses.length<=1){alert('Debe quedar al menos una empresa');return;} storage.businesses=storage.businesses.filter(item=>item.id!=='${b.id}'); if(storage.activeBusinessId==='${b.id}') storage.activeBusinessId=storage.businesses[0].id; saveStorage(); refreshBusinessSelector(); renderBusinessesList(); }" class="text-rose-500 p-2 hover:bg-rose-50 rounded-lg"><i data-lucide="trash" class="w-4 h-4"></i></button></div>` : '') + 
+                `</div>`;
+            }).join(''); lucide.createIcons();
 
             if (userBusinesses.length === 0 && storage.currentUser.role !== 'admin') {
                 document.getElementById('businesses-grid-container').innerHTML = `<div class="p-4 text-center text-xs text-slate-400 col-span-1 md:col-span-2">Contacta al Administrador General para que te asigne una empresa.</div>`;
