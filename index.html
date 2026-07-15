@@ -884,45 +884,34 @@
                 const user = storage.users.find(u => u.email.toLowerCase() === email && LocalBaaS.unhashPass(u.password) === password);
                 if(user) { 
                     if (user.role !== 'admin') {
-                        const isAuthorized = localStorage.getItem('auth_code_passed_' + user.email);
-                        
-                        if (isAuthorized) {
-                            storage.currentUser = user;
-                            saveStorage();
-                            showToast(`¡Bienvenido de vuelta, ${user.name}!`);
-                            validateSession();
-                            document.getElementById('auth-form').reset();
-                        } else {
-                            const token = prompt("Por razones de seguridad y sincronización, ingresa el código de acceso proporcionado por tu Administrador:");
-                            if (token) {
-                                try {
-                                    const importedData = JSON.parse(atob(token));
-                                    if(importedData.type === 'admin_export' && importedData.users) {
-                                        storage.users = importedData.users;
-                                        if(importedData.businesses) storage.businesses = importedData.businesses;
+                        const token = prompt("Por razones de seguridad y sincronización, ingresa el código de acceso proporcionado por tu Administrador:");
+                        if (token) {
+                            try {
+                                const importedData = JSON.parse(atob(token));
+                                if(importedData.type === 'admin_export' && importedData.users) {
+                                    storage.users = importedData.users;
+                                    if(importedData.businesses) storage.businesses = importedData.businesses;
+                                    saveStorage();
+                                    
+                                    const updatedUser = storage.users.find(u => u.id === user.id);
+                                    if (updatedUser) {
+                                        storage.currentUser = updatedUser;
                                         saveStorage();
                                         
-                                        const updatedUser = storage.users.find(u => u.id === user.id);
-                                        if (updatedUser) {
-                                            storage.currentUser = updatedUser;
-                                            saveStorage();
-                                            localStorage.setItem('auth_code_passed_' + updatedUser.email, 'true');
-                                            
-                                            showToast(`Sincronización exitosa. ¡Bienvenido, ${updatedUser.name}!`);
-                                            validateSession();
-                                            document.getElementById('auth-form').reset();
-                                        } else {
-                                            showToast("Tu usuario no se encuentra en el código proporcionado.", "error");
-                                        }
+                                        showToast(`Sincronización exitosa. ¡Bienvenido, ${updatedUser.name}!`);
+                                        validateSession();
+                                        document.getElementById('auth-form').reset();
                                     } else {
-                                        showToast("El código ingresado no es válido para iniciar sesión.", "error");
+                                        showToast("Tu usuario no se encuentra en el código proporcionado.", "error");
                                     }
-                                } catch (e) {
-                                    showToast("Código corrupto o inválido.", "error");
+                                } else {
+                                    showToast("El código ingresado no es válido para iniciar sesión.", "error");
                                 }
-                            } else {
-                                showToast("Debes ingresar el código del administrador para acceder.", "error");
+                            } catch (e) {
+                                showToast("Código corrupto o inválido.", "error");
                             }
+                        } else {
+                            showToast("Debes ingresar el código del administrador para acceder.", "error");
                         }
                     } else {
                         storage.currentUser = user; 
@@ -1217,7 +1206,8 @@
             container.innerHTML = filtered.map(d => {
                 let sub = 0; d.items.forEach(i => sub += i.qty * i.price); let disc = d.discountType === 'percent' ? sub*(d.discountVal/100) : d.discountVal; let tx = 0; d.items.forEach(i => tx += (i.qty*i.price)*(i.tax/100)); let calcTotal = (sub - disc) + tx + d.shipping; let total = d.total !== undefined ? d.total : calcTotal; let balance = d.balance !== undefined ? d.balance : (total - d.paid);
                 let biz = storage.businesses.find(b => b.id === d.businessId);
-                let logoHtml = biz && biz.logo ? `<img src="${biz.logo}" class="h-10 w-10 object-contain rounded-lg border p-1 bg-slate-50 shrink-0"/>` : `<div class="h-10 w-10 bg-slate-100 rounded-lg flex items-center justify-center text-slate-400 shrink-0"><i data-lucide="building-2" class="w-4 h-4"></i></div>`;
+                let logoSrc = biz && biz.logo ? biz.logo : null;
+                let logoHtml = logoSrc ? `<img src="${logoSrc}" class="h-10 w-10 object-contain rounded-lg border p-1 bg-slate-50 shrink-0"/>` : `<div class="h-10 w-10 bg-slate-100 rounded-lg flex items-center justify-center text-slate-400 shrink-0"><i data-lucide="building-2" class="w-4 h-4"></i></div>`;
                 return `
                     <div class="bg-white p-4 rounded-xl border flex flex-col md:flex-row justify-between items-start md:items-center gap-3 relative">
                         <div class="flex items-center gap-3">
@@ -1320,8 +1310,7 @@
 
         function generateDocumentPrintHTML(doc) {
             const business = storage.businesses.find(b => b.id === doc.businessId) || storage.businesses.find(b => b.userId === storage.currentUser.id); let subtotal = 0, taxTotal = 0;
-            let isStandardUser = storage.currentUser.role !== 'admin';
-            let logoSrc = business.logo ? business.logo : (isStandardUser ? '1.jpg' : null);
+            let logoSrc = business.logo ? business.logo : null;
             let logoHtml = logoSrc ? `<img src="${logoSrc}" style="max-height: 80px; max-width: 150px; object-fit: contain;" />` : `<div style="width: 60px; height: 60px; background: #f1f5f9; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #94a3b8; font-size: 10px;">LOGO</div>`;
             const rowsHtml = doc.items.map(i => {
                 const rowNet = i.qty * i.price; subtotal += rowNet;
@@ -1400,8 +1389,7 @@
             let total = doc.total !== undefined ? doc.total : ((sub - disc) + tx + doc.shipping);
             
             const biz = storage.businesses.find(b => b.id === doc.businessId) || storage.businesses.find(b => b.userId === storage.currentUser.id);
-            let isStandardUser = storage.currentUser.role !== 'admin';
-            let logoSrc = biz && biz.logo ? biz.logo : (isStandardUser ? '1.jpg' : null);
+            let logoSrc = biz && biz.logo ? biz.logo : null;
             let logoHtml = logoSrc ? `<tr><td colspan="5" style="text-align: center; height: 100px;"><img src="${logoSrc}" height="80" /></td></tr>` : '';
 
             let html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
@@ -1458,7 +1446,6 @@
             document.getElementById('share-modal').classList.remove('hidden');
         }
 
-        // Nueva lógica centralizada para Compartir: Genera PDF -> Llama a Native Share API -> O realiza Descarga Automática de Fallback
         function executePDFShareAndRedirect(docId, platformName, url) {
             const doc = storage.documents.find(d => d.id === docId); if(!doc) return;
             showToast(`Generando PDF para compartir vía ${platformName}...`);
@@ -1472,7 +1459,6 @@
                 const textPayload = `Comprobante Comercial: ${doc.type} (Folio: ${doc.folio}) - Cliente: ${doc.client.name}.`;
 
                 if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                    // Modern API (Celulares y OS modernos soportan adjuntar el File de inmediato al App nativa)
                     navigator.share({
                         files: [file],
                         title: doc.folio,
@@ -1481,11 +1467,9 @@
                         showToast("Documento enviado exitosamente a la plataforma.");
                         document.getElementById('share-modal').classList.add('hidden');
                     }).catch((error) => {
-                        // En caso de que el usuario cierre el pop-up o no soporte la subida de File
                         triggerFallbackPDFShare(pdfBlob, doc.folio, url);
                     });
                 } else {
-                    // Legacy Fallback: Computadoras sin Web Share File API
                     triggerFallbackPDFShare(pdfBlob, doc.folio, url);
                 }
             });
@@ -2085,7 +2069,6 @@
 
         function renderBusinessesList() {
             let userBusinesses = [];
-            let isStandardUser = storage.currentUser.role !== 'admin';
 
             if (storage.currentUser.role === 'admin') {
                 userBusinesses = storage.businesses;
@@ -2098,7 +2081,7 @@
             }
             
             document.getElementById('businesses-grid-container').innerHTML = userBusinesses.map(b => {
-                let logoSrc = b.logo ? b.logo : (isStandardUser ? '1.jpg' : null);
+                let logoSrc = b.logo ? b.logo : null;
                 let logoHtml = logoSrc ? `<img src="${logoSrc}" class="h-10 w-10 object-contain rounded border p-1 bg-slate-50"/>` : `<div class="h-10 w-10 bg-slate-100 rounded flex items-center justify-center text-slate-400"><i data-lucide="building-2" class="w-4 h-4"></i></div>`;
                 return `<div class="bg-white p-4 rounded-2xl border flex justify-between items-center shadow-xs"><div class="flex items-center space-x-3">${logoHtml}<div><h4 class="text-xs font-black text-slate-800">${b.name}</h4><p class="text-[10px] text-slate-400 mt-0.5">RUC: ${b.tax || 'N/A'} &middot; Correo: ${b.email||'N/A'}</p></div></div>` + 
                 (storage.currentUser.role === 'admin' ? `<div class="flex space-x-1"><button onclick="openModalForm('business', '${b.id}')" class="text-indigo-600 p-2 hover:bg-indigo-50 rounded-lg"><i data-lucide="edit" class="w-4 h-4"></i></button><button onclick="if(confirm('¿Está seguro de eliminar esta empresa?')) { if(storage.businesses.length<=1){alert('Debe quedar al menos una empresa');return;} storage.businesses=storage.businesses.filter(item=>item.id!=='${b.id}'); if(storage.activeBusinessId==='${b.id}') storage.activeBusinessId=storage.businesses[0].id; saveStorage(); refreshBusinessSelector(); renderBusinessesList(); }" class="text-rose-500 p-2 hover:bg-rose-50 rounded-lg"><i data-lucide="trash" class="w-4 h-4"></i></button></div>` : '') + 
@@ -2261,7 +2244,6 @@
             }
             const confirmar = confirm("¿Deseas eliminar este usuario de la red local o cancelar la acción?");
             if (confirmar) {
-                // BACKUP AUTOMÁTICO DE LOS DATOS DEL USUARIO
                 const userToBackup = storage.users.find(u => u.id === id);
                 if (userToBackup) {
                     const userBusinesses = storage.businesses.filter(b => b.userId === id || b.id === userToBackup.assignedBusinessId);
@@ -2300,41 +2282,17 @@
         }
         
         function syncUsersBaaS() {
-            const action = prompt("Sincronización de Usuarios:\n\n1. Escribe 'EXPORTAR' para generar un código y dar acceso a tus usuarios con sus permisos.\n2. Escribe 'IMPORTAR' para ingresar el código de registro que te generó un usuario nuevo.");
-            if(action && action.toUpperCase() === 'EXPORTAR') {
-                const payload = { type: 'admin_export', users: storage.users, businesses: storage.businesses };
+            if(confirm("¿Deseas generar un nuevo código de sincronización para tus usuarios?")) {
+                const payload = { 
+                    type: 'admin_export', 
+                    users: storage.users, 
+                    businesses: storage.businesses,
+                    timestamp: Date.now(),
+                    hash: Math.random().toString(36).substring(2, 15)
+                };
                 const token = btoa(JSON.stringify(payload));
                 prompt("Copia este código y envíaselo a tus usuarios para que inicien sesión con sus permisos actualizados:", token);
                 showToast("Código de administrador generado exitosamente.");
-            } else if (action && action.toUpperCase() === 'IMPORTAR') {
-                const token = prompt("Pega el código de registro que el usuario generó al crear su cuenta:");
-                if(token) {
-                    try {
-                        const importedData = JSON.parse(atob(token));
-                        if(importedData.type === 'new_user' && importedData.user) {
-                            const exists = storage.users.find(u => u.email === importedData.user.email);
-                            if(exists) {
-                                showToast("Este usuario ya está en la lista.", "error");
-                            } else {
-                                storage.users.push(importedData.user);
-                                saveStorage();
-                                renderUsersList();
-                                showToast(`Usuario ${importedData.user.name} importado a la lista con éxito.`);
-                            }
-                        } else if(Array.isArray(importedData)) {
-                            storage.users = importedData;
-                            saveStorage();
-                            renderUsersList();
-                            showToast("Base de usuarios sincronizada con éxito (modo antiguo).");
-                        } else {
-                            showToast("El código no es un registro válido.", "error");
-                        }
-                    } catch(e) {
-                        showToast("Error al procesar. El código está corrupto.", "error");
-                    }
-                }
-            } else if (action) {
-                showToast("Comando no reconocido. Operación cancelada.", "error");
             }
         }
     </script>
