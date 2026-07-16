@@ -886,35 +886,49 @@
                 const user = storage.users.find(u => u.email.toLowerCase() === email && LocalBaaS.unhashPass(u.password) === password);
                 if(user) { 
                     if (user.role !== 'admin') {
-                        // Se eliminó la validación 'auth_code_passed_' para solicitar la clave obligatoriamente cada vez
-                        const token = prompt("Por razones de seguridad y sincronización, ingresa el código de acceso proporcionado por tu Administrador:");
-                        if (token) {
-                            try {
-                                const importedData = JSON.parse(atob(token));
-                                if(importedData.type === 'admin_export' && importedData.users) {
-                                    storage.users = importedData.users;
-                                    if(importedData.businesses) storage.businesses = importedData.businesses;
-                                    saveStorage();
-                                    
-                                    const updatedUser = storage.users.find(u => u.id === user.id);
-                                    if (updatedUser) {
-                                        storage.currentUser = updatedUser;
+                        // Check if device is already authorized for this user
+                        const isAuthorized = localStorage.getItem('auth_code_passed_' + user.email);
+                        
+                        if (isAuthorized) {
+                            // Already authorized on this device, log in directly
+                            storage.currentUser = user;
+                            saveStorage();
+                            showToast(`¡Bienvenido de vuelta, ${user.name}!`);
+                            validateSession();
+                            document.getElementById('auth-form').reset();
+                        } else {
+                            // First time on this device, ask for code
+                            const token = prompt("Por razones de seguridad y sincronización, ingresa el código de acceso proporcionado por tu Administrador:");
+                            if (token) {
+                                try {
+                                    const importedData = JSON.parse(atob(token));
+                                    if(importedData.type === 'admin_export' && importedData.users) {
+                                        storage.users = importedData.users;
+                                        if(importedData.businesses) storage.businesses = importedData.businesses;
                                         saveStorage();
                                         
-                                        showToast(`Sincronización exitosa. ¡Bienvenido, ${updatedUser.name}!`);
-                                        validateSession();
-                                        document.getElementById('auth-form').reset();
+                                        const updatedUser = storage.users.find(u => u.id === user.id);
+                                        if (updatedUser) {
+                                            storage.currentUser = updatedUser;
+                                            saveStorage();
+                                            // Save authorization flag in localStorage
+                                            localStorage.setItem('auth_code_passed_' + updatedUser.email, 'true');
+                                            
+                                            showToast(`Sincronización exitosa. ¡Bienvenido, ${updatedUser.name}!`);
+                                            validateSession();
+                                            document.getElementById('auth-form').reset();
+                                        } else {
+                                            showToast("Tu usuario no se encuentra en el código proporcionado.", "error");
+                                        }
                                     } else {
-                                        showToast("Tu usuario no se encuentra en el código proporcionado.", "error");
+                                        showToast("El código ingresado no es válido para iniciar sesión.", "error");
                                     }
-                                } else {
-                                    showToast("El código ingresado no es válido para iniciar sesión.", "error");
+                                } catch (e) {
+                                    showToast("Código corrupto o inválido.", "error");
                                 }
-                            } catch (e) {
-                                showToast("Código corrupto o inválido.", "error");
+                            } else {
+                                showToast("Debes ingresar el código del administrador para acceder.", "error");
                             }
-                        } else {
-                            showToast("Debes ingresar el código del administrador para acceder.", "error");
                         }
                     } else {
                         // Admins log in directly
@@ -2133,9 +2147,13 @@
                 }
             }
             
-            document.getElementById('businesses-grid-container').innerHTML = userBusinesses.map(b => `<div class="bg-white p-4 rounded-2xl border flex justify-between items-center shadow-xs"><div class="flex items-center space-x-3">${b.logo ? `<img src="${b.logo}" class="h-10 w-10 object-contain rounded border p-1 bg-slate-50"/>` : `<div class="h-10 w-10 bg-slate-100 rounded flex items-center justify-center text-slate-400"><i data-lucide="building-2" class="w-4 h-4"></i></div>`}<div><h4 class="text-xs font-black text-slate-800">${b.name}</h4><p class="text-[10px] text-slate-400 mt-0.5">RUC: ${b.tax || 'N/A'} &middot; Correo: ${b.email||'N/A'}</p></div></div>` + 
-            `<div class="flex space-x-1"><button onclick="openModalForm('business', '${b.id}')" class="text-indigo-600 p-2 hover:bg-indigo-50 rounded-lg"><i data-lucide="edit" class="w-4 h-4"></i></button><button onclick="if(confirm('¿Está seguro de eliminar esta empresa?')) { if(storage.businesses.length<=1){alert('Debe quedar al menos una empresa');return;} storage.businesses=storage.businesses.filter(item=>item.id!=='${b.id}'); if(storage.activeBusinessId==='${b.id}') storage.activeBusinessId=storage.businesses[0].id; saveStorage(); refreshBusinessSelector(); renderBusinessesList(); }" class="text-rose-500 p-2 hover:bg-rose-50 rounded-lg"><i data-lucide="trash" class="w-4 h-4"></i></button></div>` + 
-            `</div>`).join(''); lucide.createIcons();
+            document.getElementById('businesses-grid-container').innerHTML = userBusinesses.map(b => {
+                let actionBtns = storage.currentUser.role === 'admin' 
+                    ? `<div class="flex space-x-1"><button onclick="openModalForm('business', '${b.id}')" class="text-indigo-600 p-2 hover:bg-indigo-50 rounded-lg"><i data-lucide="edit" class="w-4 h-4"></i></button><button onclick="if(confirm('¿Está seguro de eliminar esta empresa?')) { if(storage.businesses.length<=1){alert('Debe quedar al menos una empresa');return;} storage.businesses=storage.businesses.filter(item=>item.id!=='${b.id}'); if(storage.activeBusinessId==='${b.id}') storage.activeBusinessId=storage.businesses[0].id; saveStorage(); refreshBusinessSelector(); renderBusinessesList(); }" class="text-rose-500 p-2 hover:bg-rose-50 rounded-lg"><i data-lucide="trash" class="w-4 h-4"></i></button></div>`
+                    : `<div class="flex space-x-1"><button onclick="openModalForm('business', '${b.id}')" class="text-indigo-600 p-2 hover:bg-indigo-50 rounded-lg"><i data-lucide="edit" class="w-4 h-4"></i></button></div>`;
+
+                return `<div class="bg-white p-4 rounded-2xl border flex justify-between items-center shadow-xs"><div class="flex items-center space-x-3">${b.logo ? `<img src="${b.logo}" class="h-10 w-10 object-contain rounded border p-1 bg-slate-50"/>` : `<div class="h-10 w-10 bg-slate-100 rounded flex items-center justify-center text-slate-400"><i data-lucide="building-2" class="w-4 h-4"></i></div>`}<div><h4 class="text-xs font-black text-slate-800">${b.name}</h4><p class="text-[10px] text-slate-400 mt-0.5">RUC: ${b.tax || 'N/A'} &middot; Correo: ${b.email||'N/A'}</p></div></div>` + actionBtns + `</div>`;
+            }).join(''); lucide.createIcons();
 
             if (userBusinesses.length === 0 && storage.currentUser.role !== 'admin') {
                 document.getElementById('businesses-grid-container').innerHTML = `<div class="p-4 text-center text-xs text-slate-400 col-span-1 md:col-span-2">Contacta al Administrador General para que te asigne una empresa.</div>`;
