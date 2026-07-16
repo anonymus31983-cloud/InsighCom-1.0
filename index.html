@@ -886,49 +886,35 @@
                 const user = storage.users.find(u => u.email.toLowerCase() === email && LocalBaaS.unhashPass(u.password) === password);
                 if(user) { 
                     if (user.role !== 'admin') {
-                        // Check if device is already authorized for this user
-                        const isAuthorized = localStorage.getItem('auth_code_passed_' + user.email);
-                        
-                        if (isAuthorized) {
-                            // Already authorized on this device, log in directly
-                            storage.currentUser = user;
-                            saveStorage();
-                            showToast(`¡Bienvenido de vuelta, ${user.name}!`);
-                            validateSession();
-                            document.getElementById('auth-form').reset();
-                        } else {
-                            // First time on this device, ask for code
-                            const token = prompt("Por razones de seguridad y sincronización, ingresa el código de acceso proporcionado por tu Administrador:");
-                            if (token) {
-                                try {
-                                    const importedData = JSON.parse(atob(token));
-                                    if(importedData.type === 'admin_export' && importedData.users) {
-                                        storage.users = importedData.users;
-                                        if(importedData.businesses) storage.businesses = importedData.businesses;
+                        // Se eliminó la validación 'auth_code_passed_' para solicitar la clave obligatoriamente cada vez
+                        const token = prompt("Por razones de seguridad y sincronización, ingresa el código de acceso proporcionado por tu Administrador:");
+                        if (token) {
+                            try {
+                                const importedData = JSON.parse(atob(token));
+                                if(importedData.type === 'admin_export' && importedData.users) {
+                                    storage.users = importedData.users;
+                                    if(importedData.businesses) storage.businesses = importedData.businesses;
+                                    saveStorage();
+                                    
+                                    const updatedUser = storage.users.find(u => u.id === user.id);
+                                    if (updatedUser) {
+                                        storage.currentUser = updatedUser;
                                         saveStorage();
                                         
-                                        const updatedUser = storage.users.find(u => u.id === user.id);
-                                        if (updatedUser) {
-                                            storage.currentUser = updatedUser;
-                                            saveStorage();
-                                            // Save authorization flag in localStorage
-                                            localStorage.setItem('auth_code_passed_' + updatedUser.email, 'true');
-                                            
-                                            showToast(`Sincronización exitosa. ¡Bienvenido, ${updatedUser.name}!`);
-                                            validateSession();
-                                            document.getElementById('auth-form').reset();
-                                        } else {
-                                            showToast("Tu usuario no se encuentra en el código proporcionado.", "error");
-                                        }
+                                        showToast(`Sincronización exitosa. ¡Bienvenido, ${updatedUser.name}!`);
+                                        validateSession();
+                                        document.getElementById('auth-form').reset();
                                     } else {
-                                        showToast("El código ingresado no es válido para iniciar sesión.", "error");
+                                        showToast("Tu usuario no se encuentra en el código proporcionado.", "error");
                                     }
-                                } catch (e) {
-                                    showToast("Código corrupto o inválido.", "error");
+                                } else {
+                                    showToast("El código ingresado no es válido para iniciar sesión.", "error");
                                 }
-                            } else {
-                                showToast("Debes ingresar el código del administrador para acceder.", "error");
+                            } catch (e) {
+                                showToast("Código corrupto o inválido.", "error");
                             }
+                        } else {
+                            showToast("Debes ingresar el código del administrador para acceder.", "error");
                         }
                     } else {
                         // Admins log in directly
