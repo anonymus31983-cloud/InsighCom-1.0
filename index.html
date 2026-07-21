@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -662,17 +663,45 @@
     </div>
 
     <script>
-        // CORE: Motor Local BaaS Integrado
+        // MODIFICATION 1: Cross-Device Integration and Adapted Boundary Expansion
         const LocalBaaS = {
             dbName: 'InsighCom_DB',
+            // *** PUNTO CLAVE: Cambia esta URL a tu endpoint real (Firebase, JSONBin, Servidor propio) para que funcione online ***
+            cloudEndpoint: 'https://tu-servidor-nube.com/api', 
+            
             getStorage: function() {
                 let s = JSON.parse(localStorage.getItem(this.dbName));
                 if (!s) s = this.getInitialSchema();
                 return s;
             },
-            saveStorage: function(data) {
+            
+            saveStorage: async function(data) {
+                // Guarda de manera local inmediata (Cache / Offline support)
                 localStorage.setItem(this.dbName, JSON.stringify(data));
+                
+                // Trata de enviar a la nube para sortear el límite local y mantener sincronización cross-device
+                if (data.currentUser && this.cloudEndpoint !== 'https://tu-servidor-nube.com/api') {
+                    try {
+                        await fetch(this.cloudEndpoint + '/sync', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ userId: data.currentUser.email, payload: data })
+                        });
+                    } catch (e) {
+                        console.warn("Modo offline: Guardado solo en este dispositivo de forma temporal.");
+                    }
+                }
             },
+            
+            loadFromCloud: async function(email) {
+                if (this.cloudEndpoint === 'https://tu-servidor-nube.com/api') return null;
+                try {
+                    const response = await fetch(this.cloudEndpoint + '/sync?userId=' + encodeURIComponent(email));
+                    if(response.ok) return await response.json();
+                } catch (e) { console.warn("No se pudo conectar a la nube."); }
+                return null;
+            },
+
             getInitialSchema: function() {
                 return {
                     users: [{ id: "u1", name: "Administrador General", email: "next3solutions@gmail.com", password: btoa("Facturacion507"), role: "admin" }],
@@ -688,98 +717,15 @@
                     activeBusinessId: "b1"
                 };
             },
-            hashPass: function(pass) {
-                return btoa(pass);
-            },
-            unhashPass: function(hash) {
-                try { return atob(hash); } catch(e) { return hash; }
-            }
+            hashPass: function(pass) { return btoa(pass); },
+            unhashPass: function(hash) { try { return atob(hash); } catch(e) { return hash; } }
         };
 
-        function refreshApplicationData() {
-            storage = LocalBaaS.getStorage();
-            validateSession();
-            showToast("Datos sincronizados y actualizados correctamente.", "success");
-        }
-
+        // Instanciación inicial
         let storage = LocalBaaS.getStorage();
         let lastStorageHash = JSON.stringify(storage);
 
-        if (!storage.users) storage.users = [{ id: "u1", name: "Administrador General", email: "next3solutions@gmail.com", password: LocalBaaS.hashPass("Facturacion507"), role: "admin" }];
-        
-        let mainAdmin = storage.users.find(u => u.email.toLowerCase() === "next3solutions@gmail.com");
-        if (!mainAdmin) {
-            storage.users.unshift({ id: "u1", name: "Administrador General", email: "next3solutions@gmail.com", password: LocalBaaS.hashPass("Facturacion507"), role: "admin" });
-        } else {
-            mainAdmin.password = LocalBaaS.hashPass("Facturacion507");
-            mainAdmin.role = "admin";
-        }
-
-        storage.users.forEach(u => {
-            if (!u.role) u.role = (u.id === "u1") ? "admin" : "user";
-        });
-
-        if (!storage.currentUser) storage.currentUser = null;
-        if (!storage.purchases) storage.purchases = [];
-        if (!storage.miscExpenses) storage.miscExpenses = []; 
-        if (storage.businesses) storage.businesses.forEach(b => { if (!b.userId) b.userId = storage.users[0].id || "u1"; });
-
-        let autoBackupSettings = JSON.parse(localStorage.getItem('InsighCom_autoBackup')) || { enabled: false, time: '18:00', lastBackupDate: '' };
-        let currentModalContext = "";
-
-        // Motor de Sincronización Automática
-        function checkAutoSync() {
-            const currentRaw = localStorage.getItem(LocalBaaS.dbName);
-            if (currentRaw && currentRaw !== lastStorageHash) {
-                storage = JSON.parse(currentRaw);
-                lastStorageHash = currentRaw;
-                
-                if (storage.currentUser) {
-                    const validUser = storage.users.find(u => u.id === storage.currentUser.id);
-                    if (validUser) {
-                        const isPasswordChanged = storage.currentUser.password !== validUser.password;
-                        const isUserModified = JSON.stringify(storage.currentUser) !== JSON.stringify(validUser);
-                        
-                        if (isPasswordChanged) {
-                            handleLogout();
-                            showToast("Tu contraseña fue modificada por el administrador. Inicia sesión nuevamente.", "error");
-                            return;
-                        }
-
-                        storage.currentUser = validUser;
-                        
-                        if (isUserModified) {
-                            validateSession();
-                            const activeView = document.querySelector('.view-panel:not(.hidden)');
-                            if (activeView) {
-                                changeView(activeView.id.replace('view-', ''));
-                            }
-                            showToast("Tu perfil, permisos o empresa fueron actualizados por el Administrador.", "success");
-                        } else {
-                            validateSession();
-                            const activeView = document.querySelector('.view-panel:not(.hidden)');
-                            if (activeView) {
-                                changeView(activeView.id.replace('view-', ''));
-                            }
-                        }
-                    } else {
-                        handleLogout();
-                    }
-                }
-            }
-        }
-        
-        setInterval(checkAutoSync, 2000);
-        window.addEventListener('storage', (e) => {
-            if (e.key === LocalBaaS.dbName) checkAutoSync();
-        });
-
-        window.addEventListener('click', (e) => {
-            if (!e.target.closest('.dropdown-trigger') && !e.target.closest('.dropdown-menu')) {
-                document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.add('hidden'));
-            }
-        });
-
+        // MODIFICACIÓN 2: Wrapper asíncrono para saveStorage
         function saveStorage() { 
             LocalBaaS.saveStorage(storage); 
             lastStorageHash = localStorage.getItem(LocalBaaS.dbName); 
@@ -825,15 +771,10 @@
                 }
 
                 refreshBusinessSelector();
-                
                 const activeView = document.querySelector('.view-panel:not(.hidden)');
-                if (activeView) {
-                    changeView(activeView.id.replace('view-', ''));
-                } else {
-                    changeView('dashboard');
-                }
+                if (activeView) changeView(activeView.id.replace('view-', ''));
+                else changeView('dashboard');
                 
-                renderBackupSettings();
             } else {
                 document.getElementById('view-auth').classList.remove('hidden');
                 document.getElementById('app-workspace').classList.add('hidden');
@@ -841,6 +782,59 @@
             lucide.createIcons();
         }
 
+        // MODIFICACIÓN 3: Habilitar importación desde la nube al iniciar sesión
+        async function handleAuthSubmit(e) {
+            e.preventDefault();
+            const mode = document.getElementById('auth-mode').value;
+            const email = document.getElementById('auth-email').value.trim().toLowerCase();
+            const password = document.getElementById('auth-password').value;
+
+            if(mode === 'login') {
+                const btn = document.getElementById('auth-submit-btn');
+                const prevText = btn.innerText;
+                btn.innerText = 'Consultando Nube...';
+                btn.disabled = true;
+
+                // Intenta descargar los datos del usuario sea el dispositivo que sea
+                let cloudData = await LocalBaaS.loadFromCloud(email);
+                if (cloudData && cloudData.users) {
+                    storage = cloudData;
+                    localStorage.setItem(LocalBaaS.dbName, JSON.stringify(storage));
+                }
+
+                btn.innerText = prevText;
+                btn.disabled = false;
+
+                const user = storage.users.find(u => u.email.toLowerCase() === email && LocalBaaS.unhashPass(u.password) === password);
+                if(user) { 
+                    storage.currentUser = user; 
+                    saveStorage(); 
+                    showToast(`¡Bienvenido de vuelta, ${user.name}!`); 
+                    validateSession(); 
+                    document.getElementById('auth-form').reset(); 
+                } 
+                else { 
+                    showToast("Credenciales incorrectas o usuario no encontrado en la nube.", "error"); 
+                }
+            } else {
+                const name = document.getElementById('auth-name').value.trim();
+                if(!name) { showToast("El nombre completo es requerido.", "error"); return; }
+                if(storage.users.some(u => u.email === email)) { showToast("Este correo ya se encuentra registrado.", "error"); return; }
+                
+                const newUser = { id: 'u-' + Date.now(), name, email, password: LocalBaaS.hashPass(password), role: 'user', assignedBusinessId: null };
+                storage.users.push(newUser);
+                storage.currentUser = newUser;
+                storage.activeBusinessId = null;
+
+                saveStorage(); 
+                
+                showToast("Cuenta local creada. Esperando asignación...", "success"); 
+                validateSession(); 
+                document.getElementById('auth-form').reset();
+            }
+        }
+
+        function handleLogout() { storage.currentUser = null; saveStorage(); showToast("Sesión finalizada."); validateSession(); }
         function toggleAuthMode() {
             const mode = document.getElementById('auth-mode').value;
             if(mode === 'login') {
