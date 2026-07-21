@@ -126,7 +126,7 @@
                         <span id="kpi-balance-due" class="text-xl font-black text-rose-500 mt-1 block">$0.00</span>
                     </div>
                     <div class="bg-white p-5 rounded-2xl border border-slate-200/60 shadow-xs">
-                        <span class="text-[10px] uppercase font-bold text-slate-400 block">Proformas Activas</span>
+                        <span class="text-[10px] uppercase font-bold text-slate-400 block">Cotizaciones Activas</span>
                         <span id="kpi-estimates-count" class="text-xl font-black text-indigo-600 mt-1 block">0</span>
                     </div>
                 </div>
@@ -174,8 +174,13 @@
                         <select id="filter-doc-type" onchange="renderDocumentList()" class="bg-slate-50 rounded-xl px-3 py-2 text-xs font-bold text-slate-600 border cursor-pointer outline-none">
                             <option value="todos">Todos los Documentos</option>
                             <option value="Factura">Solo Facturas de Venta</option>
-                            <option value="Estimación">Solo Cotizaciones / Proformas</option>
+                            <option value="Cotización">Solo Cotizaciones / Proformas</option>
                             <option value="Nota de Crédito">Solo Notas de Crédito</option>
+                        </select>
+                        <select id="filter-payment-status" onchange="renderDocumentList()" class="bg-slate-50 rounded-xl px-3 py-2 text-xs font-bold text-slate-600 border cursor-pointer outline-none">
+                            <option value="todos">Cualquier Estado</option>
+                            <option value="pagada">Pagadas (Saldo $0)</option>
+                            <option value="pendiente">Pendientes (Con Deuda)</option>
                         </select>
                     </div>
                     <div class="flex flex-col sm:flex-row gap-3 border-t pt-3">
@@ -206,7 +211,7 @@
                     </div>
                     <select id="doc-type" onchange="adaptDocumentFields()" class="bg-indigo-600 text-white font-bold text-xs rounded-xl px-4 py-2.5 outline-none cursor-pointer">
                         <option value="Factura">Factura de Venta</option>
-                        <option value="Estimación">Cotización / Proforma</option>
+                        <option value="Cotización">Cotización</option>
                         <option value="Nota de Crédito">Nota de Crédito</option>
                     </select>
                 </div>
@@ -259,6 +264,8 @@
                                     <option value="Tarjeta">Tarjeta de Crédito / Débito</option>
                                     <option value="Crédito">Crédito Comercial (Cuenta Abierta)</option>
                                 </select>
+                                <label class="text-[10px] font-bold text-slate-400 uppercase block mt-3">Cuenta Bancaria o Yappy</label>
+                                <input type="text" id="doc-payment-details" placeholder="Ej: Banco General 04-XX-XXXX-X / Yappy @usuario" class="w-full bg-slate-50 border rounded-xl p-2.5 text-xs outline-none">
                             </div>
                             <div class="bg-white p-5 rounded-2xl border space-y-3">
                                 <label class="text-[10px] font-bold text-slate-400 uppercase block">Firma Autorizada Representante</label>
@@ -682,7 +689,6 @@
                 };
             },
             hashPass: function(pass) {
-                // Simulación de encriptación para el "BaaS" local (Base64)
                 return btoa(pass);
             },
             unhashPass: function(hash) {
@@ -763,7 +769,6 @@
             }
         }
         
-        // Escáner local y receptor de eventos dinámicos
         setInterval(checkAutoSync, 2000);
         window.addEventListener('storage', (e) => {
             if (e.key === LocalBaaS.dbName) checkAutoSync();
@@ -886,18 +891,14 @@
                 const user = storage.users.find(u => u.email.toLowerCase() === email && LocalBaaS.unhashPass(u.password) === password);
                 if(user) { 
                     if (user.role !== 'admin') {
-                        // Check if device is already authorized for this user
                         const isAuthorized = localStorage.getItem('auth_code_passed_' + user.email);
-                        
                         if (isAuthorized) {
-                            // Already authorized on this device, log in directly
                             storage.currentUser = user;
                             saveStorage();
                             showToast(`¡Bienvenido de vuelta, ${user.name}!`);
                             validateSession();
                             document.getElementById('auth-form').reset();
                         } else {
-                            // First time on this device, ask for code
                             const token = prompt("Por razones de seguridad y sincronización, ingresa el código de acceso proporcionado por tu Administrador:");
                             if (token) {
                                 try {
@@ -911,9 +912,7 @@
                                         if (updatedUser) {
                                             storage.currentUser = updatedUser;
                                             saveStorage();
-                                            // Save authorization flag in localStorage
                                             localStorage.setItem('auth_code_passed_' + updatedUser.email, 'true');
-                                            
                                             showToast(`Sincronización exitosa. ¡Bienvenido, ${updatedUser.name}!`);
                                             validateSession();
                                             document.getElementById('auth-form').reset();
@@ -931,7 +930,6 @@
                             }
                         }
                     } else {
-                        // Admins log in directly
                         storage.currentUser = user; 
                         saveStorage(); 
                         showToast(`¡Bienvenido de vuelta, ${user.name}!`); 
@@ -958,9 +956,7 @@
                 const regToken = btoa(JSON.stringify(tokenPayload));
                 
                 prompt("¡Tu cuenta se creó localmente!\nPara que el Administrador te agregue a la red y asigne tu empresa, envíale este código de registro:", regToken);
-                
                 showToast("Cuenta creada exitosamente. Entrega tu código al administrador.", "success"); 
-                
                 validateSession(); 
                 document.getElementById('auth-form').reset();
             }
@@ -985,7 +981,7 @@
             const btn = document.getElementById(`nav-${viewId === 'creator' ? 'creator' : viewId}`);
             if(btn && btn.id !== 'nav-refresh') btn.className = "w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-xs font-bold bg-indigo-600 text-white transition-all";
             
-            if (viewId === 'dashboard') { renderDocumentList(); updateKPIs(); checkStockAlerts(); checkCollectionAlerts(); }
+            if (viewId === 'dashboard') { renderDocumentList(); checkStockAlerts(); checkCollectionAlerts(); }
             if (viewId === 'clients') renderClientsList();
             if (viewId === 'suppliers') renderSuppliersList();
             if (viewId === 'purchases') renderPurchasesSection();
@@ -1092,6 +1088,7 @@
             document.getElementById('document-form').reset(); document.getElementById('edit-document-id').value = "";
             document.getElementById('creator-items-container').innerHTML = ""; document.getElementById('doc-folio').value = "FAC-" + Math.floor(2000 + Math.random() * 7999);
             document.getElementById('doc-date-emission').value = new Date().toISOString().split('T')[0]; document.getElementById('doc-date-due').value = new Date().toISOString().split('T')[0];
+            document.getElementById('doc-payment-details').value = "";
             clearSignatureCanvas(); addBlankItemRow(); calculatePrecisionTotals(); changeView('creator');
         }
 
@@ -1156,7 +1153,7 @@
 
         function adaptDocumentFields() {
             const type = document.getElementById('doc-type').value;
-            if(type === 'Estimación') { document.getElementById('lbl-date-venc').innerText = "Válido Hasta"; document.getElementById('doc-paid-val').disabled = true; document.getElementById('doc-paid-val').value = 0; } 
+            if(type === 'Cotización') { document.getElementById('lbl-date-venc').innerText = "Válido Hasta"; document.getElementById('doc-paid-val').disabled = true; document.getElementById('doc-paid-val').value = 0; } 
             else { document.getElementById('lbl-date-venc').innerText = "Fecha de Vencimiento"; document.getElementById('doc-paid-val').disabled = false; }
             calculatePrecisionTotals();
         }
@@ -1176,7 +1173,7 @@
             });
             const doc = {
                 id: editId || 'd-' + Date.now(), businessId: selectedBusinessId, type: document.getElementById('doc-type').value, folio: document.getElementById('doc-folio').value,
-                dateEmission: document.getElementById('doc-date-emission').value, timeEmission: new Date().toLocaleTimeString('es-ES', {hour: '2-digit', minute:'2-digit'}), dateDue: document.getElementById('doc-date-due').value, paymentMethod: document.getElementById('doc-payment-method').value,
+                dateEmission: document.getElementById('doc-date-emission').value, timeEmission: new Date().toLocaleTimeString('es-ES', {hour: '2-digit', minute:'2-digit'}), dateDue: document.getElementById('doc-date-due').value, paymentMethod: document.getElementById('doc-payment-method').value, paymentDetails: document.getElementById('doc-payment-details').value,
                 client: { name: document.getElementById('doc-client-name').value, tax: document.getElementById('doc-client-tax').value, email: document.getElementById('doc-client-email').value, phone: document.getElementById('doc-client-phone').value },
                 items: items, discountVal: parseFloat(document.getElementById('doc-discount-val').value) || 0, discountType: document.getElementById('doc-discount-type').value, taxTiming: document.getElementById('doc-tax-timing').value, shipping: parseFloat(document.getElementById('doc-shipping-val').value) || 0, paid: parseFloat(document.getElementById('doc-paid-val').value) || 0, signature: canvas.toDataURL(), docNotes: document.getElementById('doc-notes').value, total: parseFloat(document.getElementById('txt-calc-total').innerText.replace(/[^0-9.-]+/g,"")) || 0, balance: parseFloat(document.getElementById('txt-calc-balance').innerText.replace(/[^0-9.-]+/g,"")) || 0
             };
@@ -1184,22 +1181,42 @@
             saveStorage(); showToast("Documento mercantil archivado en el sistema."); changeView('dashboard');
         }
 
-        function updateKPIs() {
+        function updateKPIs(docs = null) {
             let totalInvoiced = 0, totalPaid = 0, balanceDue = 0, estimatesCount = 0;
-            storage.documents.filter(d => d.businessId === storage.activeBusinessId).forEach(d => {
+            let targetDocs = docs || storage.documents.filter(d => d.businessId === storage.activeBusinessId);
+            targetDocs.forEach(d => {
                 let sub = 0, tx = 0; d.items.forEach(i => { sub += i.qty * i.price; if(d.taxTiming==='before') tx += (i.qty*i.price)*(i.tax/100); });
                 let disc = d.discountType === 'percent' ? sub*(d.discountVal/100) : d.discountVal;
                 if(d.taxTiming==='after') { let f = sub > 0 ? (sub - disc)/sub : 0; d.items.forEach(i => { tx += (i.qty*i.price*f)*(i.tax/100); }); }
                 let total = (sub - disc) + tx + d.shipping;
                 if(d.type === 'Factura') { totalInvoiced += total; totalPaid += d.paid; balanceDue += (total - d.paid); } 
-                else if(d.type === 'Estimación') { estimatesCount++; } else if(d.type === 'Nota de Crédito') { totalInvoiced -= total; }
+                else if(d.type === 'Cotización') { estimatesCount++; } else if(d.type === 'Nota de Crédito') { totalInvoiced -= total; }
             });
             document.getElementById('kpi-total-invoiced').innerText = `$${totalInvoiced.toFixed(2)}`; document.getElementById('kpi-total-paid').innerText = `$${totalPaid.toFixed(2)}`;
             document.getElementById('kpi-balance-due').innerText = `$${balanceDue.toFixed(2)}`; document.getElementById('kpi-estimates-count').innerText = estimatesCount;
         }
 
+        // --- INICIO DE NUEVA FUNCIÓN AÑADIDA ---
+        function markAsPaid(id) {
+            const doc = storage.documents.find(d => d.id === id);
+            if(doc) {
+                let sub = 0; doc.items.forEach(i => sub += i.qty * i.price);
+                let disc = doc.discountType === 'percent' ? sub*(doc.discountVal/100) : doc.discountVal;
+                let tx = 0; doc.items.forEach(i => tx += (i.qty*i.price)*(i.tax/100));
+                let calcTotal = (sub - disc) + tx + doc.shipping;
+                doc.total = doc.total !== undefined ? doc.total : calcTotal;
+                doc.paid = doc.total;
+                doc.balance = 0;
+                saveStorage();
+                showToast("Factura marcada como pagada en su totalidad.");
+                renderDocumentList();
+            }
+        }
+        // --- FIN DE NUEVA FUNCIÓN AÑADIDA ---
+
         function renderDocumentList() {
             const container = document.getElementById('document-list-container'); const search = document.getElementById('global-search').value.toLowerCase(); const filterType = document.getElementById('filter-doc-type').value;
+            const filterPayment = document.getElementById('filter-payment-status') ? document.getElementById('filter-payment-status').value : 'todos';
             const filterMonth = document.getElementById('filter-dashboard-month').value;
             const filterYear = document.getElementById('filter-dashboard-year').value;
             const filterFolio = document.getElementById('filter-dashboard-folio').value.toLowerCase();
@@ -1212,6 +1229,17 @@
                 if (filterYear && !d.dateEmission.startsWith(filterYear)) match = false;
                 if (filterFolio && !d.folio.toLowerCase().includes(filterFolio)) match = false;
                 if (filterClient && !d.client.name.toLowerCase().includes(filterClient)) match = false;
+
+                let sub = 0; d.items.forEach(i => sub += i.qty * i.price);
+                let disc = d.discountType === 'percent' ? sub*(d.discountVal/100) : d.discountVal;
+                let tx = 0; d.items.forEach(i => tx += (i.qty*i.price)*(i.tax/100));
+                let calcTotal = (sub - disc) + tx + d.shipping;
+                let total = d.total !== undefined ? d.total : calcTotal;
+                let balance = d.balance !== undefined ? d.balance : (total - d.paid);
+
+                if (filterPayment === 'pagada' && balance > 0.01) match = false;
+                if (filterPayment === 'pendiente' && balance <= 0.01) match = false;
+
                 return match;
             });
             
@@ -1220,6 +1248,8 @@
             if(sortDashboard === 'folio_asc') filtered.sort((a,b) => a.folio.localeCompare(b.folio));
             if(sortDashboard === 'client_asc') filtered.sort((a,b) => a.client.name.localeCompare(b.client.name));
             
+            updateKPIs(filtered);
+
             if(filtered.length === 0) { container.innerHTML = `<div class="p-8 text-center text-xs text-slate-400 bg-white rounded-2xl border">Ningún registro coincide.</div>`; return; }
             container.innerHTML = filtered.map(d => {
                 let sub = 0; d.items.forEach(i => sub += i.qty * i.price); let disc = d.discountType === 'percent' ? sub*(d.discountVal/100) : d.discountVal; let tx = 0; d.items.forEach(i => tx += (i.qty*i.price)*(i.tax/100)); let calcTotal = (sub - disc) + tx + d.shipping; let total = d.total !== undefined ? d.total : calcTotal; let balance = d.balance !== undefined ? d.balance : (total - d.paid);
@@ -1230,12 +1260,17 @@
                             <p class="text-xs text-slate-500 mt-1 font-medium">${d.client.name} &middot; <span class="font-mono text-[11px]">${d.dateEmission} ${d.timeEmission ? '- ' + d.timeEmission : ''}</span></p>
                         </div>
                         <div class="flex items-center space-x-4 w-full md:w-auto justify-between md:justify-end">
-                            <div class="text-right"><div class="text-xs font-black text-slate-900">$${total.toFixed(2)}</div><div class="text-[10px] text-slate-400 font-bold uppercase">${d.type === 'Estimación' ? 'Proforma' : 'CxC: $' + balance.toFixed(2)}</div></div>
+                            <div class="text-right"><div class="text-xs font-black text-slate-900">$${total.toFixed(2)}</div><div class="text-[10px] text-slate-400 font-bold uppercase">${d.type === 'Cotización' ? 'Cotización' : 'CxC: $' + balance.toFixed(2)}</div></div>
                             <div class="flex space-x-1 relative">
                                 <div class="relative inline-block text-left">
                                     <button onclick="toggleDropdownActions(event, '${d.id}')" class="dropdown-trigger p-2 bg-slate-50 hover:bg-slate-100 rounded-lg text-slate-600 border flex items-center space-x-1 text-xs font-bold"><i data-lucide="file-text" class="w-4 h-4"></i><span>Acciones</span><i data-lucide="chevron-down" class="w-3 h-3"></i></button>
                                     <div id="drop-${d.id}" class="dropdown-menu hidden fixed md:absolute right-4 md:right-0 mt-2 w-48 bg-white border rounded-xl shadow-xl z-50 divide-y divide-slate-100 text-left">
                                        <div class="py-1"><button onclick="shareDocument('${d.id}')" class="w-full px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center space-x-2"><i data-lucide="share-2" class="w-3.5 h-3.5 text-slate-500"></i><span>Compartir Documento</span></button></div>
+                                       
+                                       <!-- INICIO DE CAMBIO AÑADIDO: BOTÓN MARCAR COMO PAGADA -->
+                                       ${d.type === 'Factura' && balance > 0.01 ? `<div class="py-1"><button onclick="markAsPaid('${d.id}')" class="w-full px-4 py-2 text-xs font-medium text-emerald-600 hover:bg-emerald-50 flex items-center space-x-2"><i data-lucide="check-circle" class="w-3.5 h-3.5 text-emerald-500"></i><span>Marcar Pagada</span></button></div>` : ''}
+                                       <!-- FIN DE CAMBIO AÑADIDO -->
+
                                         <div class="py-1"><button onclick="exportToPDF('${d.id}')" class="w-full px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center space-x-2"><i data-lucide="file-pdf" class="w-3.5 h-3.5 text-rose-500"></i><span>Exportar PDF</span></button><button onclick="exportToSimpleDoc('${d.id}')" class="w-full px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center space-x-2"><i data-lucide="file-text" class="w-3.5 h-3.5 text-blue-500"></i><span>Exportar a .doc</span></button><button onclick="exportToSimpleXls('${d.id}')" class="w-full px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center space-x-2"><i data-lucide="sheet" class="w-3.5 h-3.5 text-emerald-500"></i><span>Exportar a .xls</span></button></div>
                                     </div>
                                 </div>
@@ -1331,25 +1366,25 @@
                     </div>
                     <div style="background: #f8fafc; padding: 20px; border-radius: 12px; margin-bottom: 30px; display: flex; justify-content: space-between;">
                         <div><h3 style="margin: 0 0 8px; font-size: 10px; text-transform: uppercase; color: #94a3b8; letter-spacing: 1px;">Facturar A</h3><p style="margin: 0; font-size: 14px; font-weight: bold; color: #0f172a;">${doc.client.name}</p><p style="margin: 4px 0 0; font-size: 11px; color: #475569;">${doc.client.tax || 'Sin Identificación'} | ${doc.client.phone || ''}</p><p style="margin: 2px 0 0; font-size: 11px; color: #475569;">${doc.client.email || ''}</p></div>
-                        <div style="text-align: right;"><h3 style="margin: 0 0 8px; font-size: 10px; text-transform: uppercase; color: #94a3b8; letter-spacing: 1px;">Detalles de Pago</h3><p style="margin: 0; font-size: 12px; color: #475569;">Método: <strong style="color: #0f172a;">${doc.paymentMethod || 'No definido'}</strong></p></div>
+                        <div style="text-align: right;"><h3 style="margin: 0 0 8px; font-size: 10px; text-transform: uppercase; color: #94a3b8; letter-spacing: 1px;">Detalles de Pago</h3><p style="margin: 0; font-size: 12px; color: #475569;">Método: <strong style="color: #0f172a;">${doc.paymentMethod || 'No definido'}</strong></p>${doc.paymentDetails ? `<p style="margin: 4px 0 0; font-size: 12px; color: #475569;">Cuenta/Yappy: <strong style="color: #0f172a;">${doc.paymentDetails}</strong></p>` : ''}</div>
                     </div>
                     <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
-                        <thead><tr style="background: #f1f5f9; border-bottom: 2px solid #cbd5e1;"><th style="padding: 10px 8px; text-align: left; font-size: 10px; font-weight: bold; text-transform: uppercase; color: #64748b;">Concepto / Descripción</th><th style="padding: 10px 8px; text-align: center; font-size: 10px; font-weight: bold; text-transform: uppercase; color: #64748b;">Cantidad</th><th style="padding: 10px 8px; text-align: right; font-size: 10px; font-weight: bold; text-transform: uppercase; color: #64748b;">Precio Unit.</th><th style="padding: 10px 8px; text-align: center; font-size: 10px; font-weight: bold; text-transform: uppercase; color: #64748b;">Impuesto</th><th style="padding: 10px 8px; text-align: right; font-size: 10px; font-weight: bold; text-transform: uppercase; color: #64748b;">Total Bruto</th></tr></thead>
+                        <thead><tr style="background: #f1f5f9; border-bottom: 2px solid #cbd5e1;"><th style="padding: 10px 8px; text-align: left; font-size: 10px; font-weight: bold; text-transform: uppercase; color: #64748b;">Concepto / Descripción</th><th style="padding: 10px 8px; text-align: center; font-size: 10px; font-weight: bold; text-transform: uppercase; color: #64748b;">Cantidad</th><th style="padding: 10px 8px; text-align: right; font-size: 10px; font-weight: bold; text-transform: uppercase; color: #64748b;">Precio Unit.</th><th style="padding: 10px 8px; text-align: center; font-size: 10px; font-weight: bold; text-transform: uppercase; color: #64748b;">Impuesto</th><th style="padding: 10px 8px; text-align: right; font-size: 10px; font-weight: bold; text-transform: uppercase; color: #64748b;">Total Neto</th></tr></thead>
                         <tbody>${rowsHtml}</tbody>
                     </table>
                     <div style="display: flex; justify-content: flex-end; margin-bottom: 40px;">
-                        <div style="width: 320px;">
-                            <div style="display: flex; justify-content: space-between; padding: 6px 0; font-size: 12px; color: #475569;"><span>Subtotal Original:</span><span style="font-weight: bold;">$${subtotal.toFixed(2)}</span></div>
-                            <div style="display: flex; justify-content: space-between; padding: 6px 0; font-size: 12px; color: #ef4444;"><span>Descuentos (-):</span><span>-$${discCalculated.toFixed(2)}</span></div>
-                            <div style="display: flex; justify-content: space-between; padding: 6px 0; font-size: 12px; color: #475569;"><span>Flete / Logística:</span><span>$${(doc.shipping || 0).toFixed(2)}</span></div>
-                            <div style="display: flex; justify-content: space-between; padding: 6px 0; font-size: 12px; color: #475569;"><span>Impuestos Consolidados:</span><span>$${taxTotal.toFixed(2)}</span></div>
-                            <div style="display: flex; justify-content: space-between; padding: 12px 0; margin-top: 10px; border-top: 2px solid #e2e8f0; font-size: 16px; font-weight: 900; color: #0f172a;"><span>MONTO TOTAL A PAGAR:</span><span style="color: #4f46e5;">$${grandTotal.toFixed(2)}</span></div>
-                            <div style="text-align: right; font-size: 11px; color: #64748b; margin-top: 5px;">Saldo Pendiente: $${finalBalance.toFixed(2)}</div>
+                        <div style="width: 300px; font-size: 12px; color: #475569;">
+                            <div style="display: flex; justify-content: space-between; padding: 6px 0;"><span>Subtotal Bruto:</span><span style="font-weight: bold; color: #0f172a;">$${subtotal.toFixed(2)}</span></div>
+                            <div style="display: flex; justify-content: space-between; padding: 6px 0;"><span>Descuento:</span><span style="color: #ef4444;">-$${discCalculated.toFixed(2)}</span></div>
+                            <div style="display: flex; justify-content: space-between; padding: 6px 0;"><span>Flete/Envío:</span><span>$${(doc.shipping || 0).toFixed(2)}</span></div>
+                            <div style="display: flex; justify-content: space-between; padding: 6px 0;"><span>Impuestos ITBMS:</span><span style="font-weight: bold; color: #0f172a;">$${taxTotal.toFixed(2)}</span></div>
+                            <div style="display: flex; justify-content: space-between; padding: 12px 0; border-top: 2px solid #e2e8f0; border-bottom: 2px solid #e2e8f0; margin-top: 6px; font-size: 16px; font-weight: 900; color: #4f46e5;"><span>MONTO TOTAL:</span><span>$${grandTotal.toFixed(2)}</span></div>
+                            ${doc.type === 'Factura' ? `<div style="display: flex; justify-content: space-between; padding: 8px 0; font-size: 11px;"><span>Total Abonado:</span><span style="color: #10b981; font-weight: bold;">$${(doc.paid || 0).toFixed(2)}</span></div><div style="display: flex; justify-content: space-between; padding: 8px 0; font-size: 12px; font-weight: bold; color: #e11d48;"><span>Saldo Pendiente (CxC):</span><span>$${finalBalance.toFixed(2)}</span></div>` : ''}
                         </div>
                     </div>
                     <div style="display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px solid #e2e8f0; padding-top: 20px;">
-                        <div style="max-width: 50%;"><h4 style="margin: 0 0 5px; font-size: 10px; text-transform: uppercase; font-weight: bold; color: #94a3b8;">Cláusulas Adicionales</h4><p style="margin: 0; font-size: 11px; color: #64748b; line-height: 1.5;">${doc.docNotes || 'Documento oficial.'}</p></div>
-                        <div style="text-align: center; width: 220px;">${doc.signature && doc.signature.length > 50 ? `<img src="${doc.signature}" style="max-width: 100%; max-height: 70px; margin-bottom: 5px;" />` : `<div style="height: 70px;"></div>`}<div style="border-top: 1px solid #0f172a; padding-top: 5px; font-size: 10px; font-weight: bold; color: #0f172a; text-transform: uppercase;">Firma Autorizada</div></div>
+                        <div style="width: 50%;"><h4 style="margin: 0 0 5px; font-size: 10px; text-transform: uppercase; color: #94a3b8;">Notas y Condiciones</h4><p style="margin: 0; font-size: 10px; color: #64748b; line-height: 1.4;">${doc.docNotes || 'Sin notas adicionales.'}</p></div>
+                        ${doc.signature && doc.signature.length > 50 ? `<div style="text-align: center; width: 200px;"><img src="${doc.signature}" style="max-width: 100%; max-height: 60px; border-bottom: 1px solid #0f172a; margin-bottom: 5px;" /><p style="margin: 0; font-size: 10px; font-weight: bold; color: #0f172a;">Firma Autorizada</p></div>` : ''}
                     </div>
                 </div>
             `;
