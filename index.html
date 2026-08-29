@@ -47,6 +47,12 @@
 
             <form id="auth-form" onsubmit="handleAuthSubmit(event)" class="space-y-4">
                 <input type="hidden" id="auth-mode" value="login">
+
+                <div id="saved-accounts-wrapper" class="hidden space-y-2 p-3 bg-slate-100/50 rounded-xl border border-slate-200">
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase">Cuentas Guardadas</label>
+                    <div id="saved-accounts-list" class="flex flex-col gap-2"></div>
+                </div>
+
                 <div id="group-register-name" class="hidden">
                     <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Nombre Completo</label>
                     <input type="text" id="auth-name" class="w-full bg-slate-50 border rounded-xl p-2.5 text-xs outline-none focus:border-indigo-500" placeholder="Ej: Juan Pérez">
@@ -59,6 +65,12 @@
                     <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Contraseña de Seguridad</label>
                     <input type="password" id="auth-password" class="w-full bg-slate-50 border rounded-xl p-2.5 text-xs outline-none focus:border-indigo-500" placeholder="••••••••" required>
                 </div>
+
+                <div class="flex items-center space-x-2 py-1" id="remember-me-container">
+                    <input type="checkbox" id="auth-remember" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer">
+                    <label for="auth-remember" class="text-[10px] font-bold text-slate-500 uppercase cursor-pointer">Guardar cuenta y contraseña</label>
+                </div>
+
                 <button type="submit" id="auth-submit-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold py-3 rounded-xl text-xs shadow-md transition-all">Iniciar Sesión Local</button>
             </form>
             <div class="text-center pt-2 border-t border-slate-100 flex flex-col space-y-2">
@@ -889,7 +901,9 @@
 
             if(mode === 'login') {
                 const user = storage.users.find(u => u.email.toLowerCase() === email && LocalBaaS.unhashPass(u.password) === password);
-                if(user) { 
+                if(user) {
+                    const rememberCb = document.getElementById('auth-remember');
+                    if(rememberCb && rememberCb.checked) saveAccount(email, password, user.name);
                     if (user.role !== 'admin') {
                         const isAuthorized = localStorage.getItem('auth_code_passed_' + user.email);
                         if (isAuthorized) {
@@ -962,7 +976,14 @@
             }
         }
 
-        function handleLogout() { storage.currentUser = null; saveStorage(); showToast("Sesión finalizada de manera segura."); validateSession(); }
+        function handleLogout() { 
+                    storage.currentUser = null; 
+                    saveStorage(); 
+                    showToast("Sesión finalizada de manera segura."); 
+                    document.getElementById('auth-form').reset(); // Limpia los inputs
+                    renderSavedAccounts(); // Actualiza la lista de cuentas
+                    validateSession(); 
+                }
 
         function changeView(viewId) {
             if (!storage.currentUser) return;
@@ -2428,6 +2449,76 @@
                 showToast("Comando no reconocido. Operación cancelada.", "error");
             }
         }
+
+        // --- INICIO: GESTIÓN DE CUENTAS GUARDADAS ---
+        const SAVED_ACCOUNTS_KEY = 'InsighCom_SavedAccounts';
+
+        function getSavedAccounts() {
+            return JSON.parse(localStorage.getItem(SAVED_ACCOUNTS_KEY)) || [];
+        }
+
+        function saveAccount(email, password, name) {
+            let accounts = getSavedAccounts();
+            const existingIndex = accounts.findIndex(a => a.email === email);
+            if (existingIndex !== -1) {
+                accounts[existingIndex].password = btoa(password); // Ofuscación simple
+                accounts[existingIndex].name = name;
+            } else {
+                accounts.push({ email, password: btoa(password), name });
+            }
+            localStorage.setItem(SAVED_ACCOUNTS_KEY, JSON.stringify(accounts));
+            renderSavedAccounts();
+        }
+
+        function removeSavedAccount(email) {
+            let accounts = getSavedAccounts();
+            accounts = accounts.filter(a => a.email !== email);
+            localStorage.setItem(SAVED_ACCOUNTS_KEY, JSON.stringify(accounts));
+            renderSavedAccounts();
+        }
+
+        function renderSavedAccounts() {
+            const accounts = getSavedAccounts();
+            const wrapper = document.getElementById('saved-accounts-wrapper');
+            const list = document.getElementById('saved-accounts-list');
+            
+            if (!wrapper || !list) return;
+
+            if (accounts.length === 0) {
+                wrapper.classList.add('hidden');
+                return;
+            }
+            window.addEventListener('DOMContentLoaded', () => { initSignatureCanvas(); validateSession(); renderSavedAccounts(); });
+
+            wrapper.classList.remove('hidden');
+            list.innerHTML = accounts.map(acc => `
+                <div class="flex items-center justify-between bg-white border rounded-xl p-2 w-full hover:border-indigo-400 transition-all cursor-pointer shadow-sm group">
+                    <div class="flex items-center space-x-3 flex-1 overflow-hidden" onclick="useSavedAccount('${acc.email}')">
+                        <div class="bg-indigo-100 text-indigo-600 p-2 rounded-lg shrink-0"><i data-lucide="user-check" class="w-4 h-4"></i></div>
+                        <div class="overflow-hidden text-left">
+                            <p class="text-xs font-bold text-slate-700 truncate">${acc.name || acc.email}</p>
+                            <p class="text-[9px] text-slate-400 truncate">${acc.email}</p>
+                        </div>
+                    </div>
+                    <button type="button" onclick="removeSavedAccount('${acc.email}')" class="p-2 text-slate-300 hover:text-rose-500 rounded-lg transition-all z-10" title="Olvidar cuenta">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            `).join('');
+            if(window.lucide) lucide.createIcons();
+        }
+
+        function useSavedAccount(email) {
+            const accounts = getSavedAccounts();
+            const account = accounts.find(a => a.email === email);
+            if (account) {
+                document.getElementById('auth-email').value = account.email;
+                document.getElementById('auth-password').value = atob(account.password);
+                document.getElementById('auth-remember').checked = true;
+            }
+        }
+        // --- FIN: GESTIÓN DE CUENTAS GUARDADAS ---
+
     </script>
 </body>
 </html>
