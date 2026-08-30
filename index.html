@@ -2482,16 +2482,19 @@
             const accounts = getSavedAccounts();
             const wrapper = document.getElementById('saved-accounts-wrapper');
             const list = document.getElementById('saved-accounts-list');
-            
+            const savedAccounts = JSON.parse(localStorage.getItem('insighcom_accounts')) || [];
+
             if (!wrapper || !list) return;
 
             if (accounts.length === 0) {
                 wrapper.classList.add('hidden');
+                wrapper.style.display = 'none';
                 return;
             }
             window.addEventListener('DOMContentLoaded', () => { initSignatureCanvas(); renderSavedAccounts(); validateSession(); });
-
+            
             wrapper.classList.remove('hidden');
+            wrapper.style.display = 'block';
             list.innerHTML = accounts.map(acc => `
                 <div class="flex items-center justify-between bg-white border rounded-xl p-2 w-full hover:border-indigo-400 transition-all cursor-pointer shadow-sm group">
                     <div class="flex items-center space-x-3 flex-1 overflow-hidden" onclick="useSavedAccount('${acc.email}')">
