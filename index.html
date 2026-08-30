@@ -846,9 +846,10 @@
                 }
                 
                 renderBackupSettings();
-            } else {
+                } else {
                 document.getElementById('view-auth').classList.remove('hidden');
                 document.getElementById('app-workspace').classList.add('hidden');
+                renderSavedAccounts(); // <-- AÑADE ESTA LÍNEA AQUÍ
             }
             lucide.createIcons();
         }
@@ -2488,7 +2489,7 @@
                 wrapper.classList.add('hidden');
                 return;
             }
-            window.addEventListener('DOMContentLoaded', () => { initSignatureCanvas(); validateSession(); renderSavedAccounts(); });
+            window.addEventListener('DOMContentLoaded', () => { initSignatureCanvas(); renderSavedAccounts(); validateSession(); });
 
             wrapper.classList.remove('hidden');
             list.innerHTML = accounts.map(acc => `
