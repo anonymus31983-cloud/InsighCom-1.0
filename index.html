@@ -226,6 +226,33 @@
                         <option value="Cotización">Cotización</option>
                         <option value="Nota de Crédito">Nota de Crédito</option>
                     </select>
+                    <select id="doc-template" class="bg-emerald-600 text-white font-bold text-xs rounded-xl px-4 py-2.5 outline-none cursor-pointer">
+                        <option value="inv-wave-blue">Olas Azules Corporativas (Diseño 1)</option>
+                        <option value="inv-teal-split">Panel Lateral Teal y Oscuro (Diseño 2)</option>
+                        <option value="inv-geo-blue">Geométrico Angular Azul y Negro (Diseño 3)</option>
+                        <option value="inv-corp-red">Corporativo Rojo y Marino (Diseño 4)</option>
+                        <option value="inv-multi-circles">Círculos Multicolor Creativos (Diseño 5)</option>
+                        <option value="inv-orange-diag">Diagonal Naranja Ejecutivo (Diseño 6)</option>
+                        <option value="neo-glass">Glassmorphism (Cristal Táctil)</option>
+                        <option value="dark-gradient">Degradado Oscuro (Ultra Moderno)</option>
+                        <option value="nordic-clean">Nórdico Limpio (Minimalista)</option>
+                        <option value="pastel-dream">Sueño Pastel (Suave y Fresco)</option>
+                        <option value="neon-cyber">Cyberpunk Neón (Vanguardista)</option>
+                        <option value="brutal-mono">Brutalismo Monocromático (Audaz)</option>
+                        <option value="holo-foil">Efecto Holográfico (Creativo)</option>
+                        <option value="vibrant-mesh">Malla Vibrante (Energético)</option>
+                        <option value="soft-shadows">Sombras Suaves (Elegante)</option>
+                        <option value="abstract-shapes">Formas Abstractas (Artístico)</option>
+                        <option value="liquid-flow">Flujo Líquido (Dinámico)</option>
+                        <option value="dark-emerald">Esmeralda Profundo (Premium)</option>
+                        <option value="sunrise-glow">Resplandor Cálido (Acogedor)</option>
+                        <option value="midnight-blue">Azul Medianoche (Ejecutivo)</option>
+                        <option value="retro-wave">Retrowave Moderno (Nostalgia 80s)</option>
+                        <option value="sleek-silver">Plata Elegante (Alta Tecnología)</option>
+                        <option value="coral-reef">Arrecife Coral (Vibrante)</option>
+                        <option value="space-black">Negro Espacial (Exclusivo)</option>
+                        <option value="neumorphism-light">Neumorfismo Claro (Realista)</option>
+                    </select>
                 </div>
                 <form id="document-form" onsubmit="saveDocument(event)" class="space-y-5 pb-12">
                     <input type="hidden" id="edit-document-id" value="">
@@ -1181,26 +1208,129 @@
         }
 
         function saveDocument(e) {
-            e.preventDefault(); const editId = document.getElementById('edit-document-id').value; const selectedBusinessId = document.getElementById('doc-business-selector').value; let items = [];
+            e.preventDefault(); 
+            const editId = document.getElementById('edit-document-id').value; 
+            const selectedBusinessId = document.getElementById('doc-business-selector').value; 
+            let items = [];
+
             document.querySelectorAll('.row-item-target').forEach(row => {
-                const itemId = row.querySelector('.row-item-id').value; const qty = parseFloat(row.querySelector('.row-qty').value) || 1; const name = row.querySelector('.row-desc').value;
-                items.push({ itemId: itemId, name: name, qty: qty, price: parseFloat(row.querySelector('.row-price').value) || 0, tax: parseFloat(row.querySelector('.row-tax').value) || 0 });
+                const itemId = row.querySelector('.row-item-id').value; 
+                const qty = parseFloat(row.querySelector('.row-qty').value) || 1; 
+                const name = row.querySelector('.row-desc').value;
+
+                items.push({ 
+                    itemId: itemId, 
+                    name: name, 
+                    qty: qty, 
+                    price: parseFloat(row.querySelector('.row-price').value) || 0, 
+                    tax: parseFloat(row.querySelector('.row-tax').value) || 0 
+                });
+
                 if (!editId && itemId) {
                     const prod = storage.catalog.find(p => p.id === itemId);
-                    if(prod) {
-                        if(document.getElementById('doc-type').value === 'Factura') { prod.stock = Math.max(0, prod.stock - qty); storage.cardex.unshift({ id: 'cx-' + Date.now() + Math.random().toString(36).substr(2,5), timestamp: new Date().toLocaleString(), businessId: selectedBusinessId, itemId: prod.id, itemName: prod.name, type: "Venta Facturada", qty: -qty }); } 
-                        else if(document.getElementById('doc-type').value === 'Nota de Crédito') { prod.stock += qty; storage.cardex.unshift({ id: 'cx-' + Date.now() + Math.random().toString(36).substr(2,5), timestamp: new Date().toLocaleString(), businessId: selectedBusinessId, itemId: prod.id, itemName: prod.name, type: "Devolución (Nota)", qty: qty }); }
+                    if (prod) {
+                        if (document.getElementById('doc-type').value === 'Factura') { 
+                            prod.stock = Math.max(0, prod.stock - qty); 
+                            storage.cardex.unshift({ 
+                                id: 'cx-' + Date.now() + Math.random().toString(36).substr(2,5), 
+                                timestamp: new Date().toLocaleString(), 
+                                businessId: selectedBusinessId, 
+                                itemId: prod.id, 
+                                itemName: prod.name, 
+                                type: "Venta Facturada", 
+                                qty: -qty 
+                            }); 
+                        } else if (document.getElementById('doc-type').value === 'Nota de Crédito') { 
+                            prod.stock += qty; 
+                            storage.cardex.unshift({ 
+                                id: 'cx-' + Date.now() + Math.random().toString(36).substr(2,5), 
+                                timestamp: new Date().toLocaleString(), 
+                                businessId: selectedBusinessId, 
+                                itemId: prod.id, 
+                                itemName: prod.name, 
+                                type: "Devolución (Nota)", 
+                                qty: qty 
+                            }); 
+                        }
                     }
                 }
             });
-            const doc = {
-                id: editId || 'd-' + Date.now(), businessId: selectedBusinessId, type: document.getElementById('doc-type').value, folio: document.getElementById('doc-folio').value,
-                dateEmission: document.getElementById('doc-date-emission').value, timeEmission: new Date().toLocaleTimeString('es-ES', {hour: '2-digit', minute:'2-digit'}), dateDue: document.getElementById('doc-date-due').value, paymentMethod: document.getElementById('doc-payment-method').value, paymentDetails: document.getElementById('doc-payment-details').value,
-                client: { name: document.getElementById('doc-client-name').value, tax: document.getElementById('doc-client-tax').value, email: document.getElementById('doc-client-email').value, phone: document.getElementById('doc-client-phone').value },
-                items: items, discountVal: parseFloat(document.getElementById('doc-discount-val').value) || 0, discountType: document.getElementById('doc-discount-type').value, taxTiming: document.getElementById('doc-tax-timing').value, shipping: parseFloat(document.getElementById('doc-shipping-val').value) || 0, paid: parseFloat(document.getElementById('doc-paid-val').value) || 0, signature: canvas.toDataURL(), docNotes: document.getElementById('doc-notes').value, total: parseFloat(document.getElementById('txt-calc-total').innerText.replace(/[^0-9.-]+/g,"")) || 0, balance: parseFloat(document.getElementById('txt-calc-balance').innerText.replace(/[^0-9.-]+/g,"")) || 0
+
+            const docType = document.getElementById('doc-type').value;
+            const templateId = document.getElementById('doc-template').value;
+            
+            // Captura de fechas
+            const now = new Date();
+            const emissionDate = document.getElementById('doc-date-emission').value;
+            const dueDateVal = document.getElementById('doc-date-due').value;
+            const timeEmission = now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+            
+            // Formato completo con hora para el tablero
+            const fullDateTime = emissionDate ? `${emissionDate} ${timeEmission}` : now.toLocaleString('es-ES');
+
+            const newDoc = {
+                id: editId || 'doc-' + Date.now(),
+                userId: storage.currentUser.id,
+                type: docType,
+                template: templateId,
+                folio: document.getElementById('doc-folio').value,
+                businessId: selectedBusinessId,
+                
+                // Fechas de Emisión (compatibilidad para tablero y edicion)
+                date: fullDateTime,          // Muestra Fecha y Hora en el tablero
+                dateEmission: emissionDate,  // Usado al rellenar formulario de edición
+                timeEmission: timeEmission,  // Hora de emisión
+                createdAt: now.toISOString(),
+                
+                // Fechas de Vencimiento / Validez (guardado con ambos nombres)
+                dateDue: dueDateVal,         // Necesario si la función de Editar busca "dateDue"
+                dueDate: dueDateVal,         // Necesario si la plantilla/vista busca "dueDate"
+                
+                client: {
+                    id: document.getElementById('doc-client-selector').value,
+                    name: document.getElementById('doc-client-name').value,
+                    tax: document.getElementById('doc-client-tax').value,
+                    email: document.getElementById('doc-client-email').value,
+                    phone: document.getElementById('doc-client-phone').value
+                },
+                items: items,
+                paymentMethod: document.getElementById('doc-payment-method').value,
+                paymentDetails: document.getElementById('doc-payment-details').value,
+                
+                // Notas (guardado con ambos nombres)
+                notes: document.getElementById('doc-notes').value,
+                docNotes: document.getElementById('doc-notes').value,
+                
+                discountVal: parseFloat(document.getElementById('doc-discount-val').value) || 0,
+                discountType: document.getElementById('doc-discount-type').value,
+                taxTiming: document.getElementById('doc-tax-timing').value,
+                shipping: parseFloat(document.getElementById('doc-shipping-val').value) || 0,
+                paid: parseFloat(document.getElementById('doc-paid-val').value) || 0,
+                
+                totalText: document.getElementById('txt-calc-total').innerText,
+                subtotalText: document.getElementById('txt-calc-subtotal').innerText,
+                taxText: document.getElementById('txt-calc-tax').innerText,
+                total: parseFloat(document.getElementById('txt-calc-total').innerText.replace(/[^0-9.-]+/g,"")) || 0,
+                balance: parseFloat(document.getElementById('txt-calc-balance').innerText.replace(/[^0-9.-]+/g,"")) || 0,
+                signature: (typeof canvas !== 'undefined' && canvas) ? canvas.toDataURL() : null,
+                status: (parseFloat(document.getElementById('txt-calc-balance').innerText.replace('$','')) <= 0 && docType !== 'Cotización') ? 'pagada' : 'pendiente'
             };
-            if(editId) { const index = storage.documents.findIndex(d => d.id === editId); if(index !== -1) storage.documents[index] = doc; } else { storage.documents.unshift(doc); }
-            saveStorage(); showToast("Documento mercantil archivado en el sistema."); changeView('dashboard');
+
+            if (editId) {
+                const idx = storage.documents.findIndex(d => d.id === editId);
+                if (idx !== -1) storage.documents[idx] = newDoc;
+            } else {
+                storage.documents.unshift(newDoc);
+            }
+
+            saveStorage();
+            showToast("Comprobante Archivado Exitosamente");
+            
+            if (typeof generarPDFPlantillaPerfecta === 'function') {
+                generarPDFPlantillaPerfecta(newDoc);
+            }
+            
+            changeView('dashboard');
         }
 
         function updateKPIs(docs = null) {
@@ -1237,7 +1367,9 @@
         // --- FIN DE NUEVA FUNCIÓN AÑADIDA ---
 
         function renderDocumentList() {
-            const container = document.getElementById('document-list-container'); const search = document.getElementById('global-search').value.toLowerCase(); const filterType = document.getElementById('filter-doc-type').value;
+            const container = document.getElementById('document-list-container'); 
+            const search = document.getElementById('global-search').value.toLowerCase(); 
+            const filterType = document.getElementById('filter-doc-type').value;
             const filterPayment = document.getElementById('filter-payment-status') ? document.getElementById('filter-payment-status').value : 'todos';
             const filterMonth = document.getElementById('filter-dashboard-month').value;
             const filterYear = document.getElementById('filter-dashboard-year').value;
@@ -1245,31 +1377,49 @@
             const filterClient = document.getElementById('filter-dashboard-client').value.toLowerCase();
             const sortDashboard = document.getElementById('sort-dashboard-select').value;
             
-            let filtered = storage.documents.filter(d => d.businessId === storage.activeBusinessId).filter(d => {
+            // 1. Filtrar primero por el negocio activo
+            let filtered = storage.documents.filter(d => d.businessId === storage.activeBusinessId);
+            
+            // 2. Filtro de privacidad: Si no es admin, solo ve sus propios documentos
+            if (storage.currentUser.role !== 'admin') {
+                filtered = filtered.filter(d => d.userId === storage.currentUser.id);
+            }
+
+            // 3. Aplicar filtros de búsqueda, estado y fechas
+            filtered = filtered.filter(d => {
                 let match = (d.client.name.toLowerCase().includes(search) || d.folio.toLowerCase().includes(search)) && (filterType === 'todos' || d.type === filterType);
+                
                 if (filterMonth && !d.dateEmission.startsWith(filterMonth)) match = false;
                 if (filterYear && !d.dateEmission.startsWith(filterYear)) match = false;
                 if (filterFolio && !d.folio.toLowerCase().includes(filterFolio)) match = false;
                 if (filterClient && !d.client.name.toLowerCase().includes(filterClient)) match = false;
 
-                let sub = 0; d.items.forEach(i => sub += i.qty * i.price);
-                let disc = d.discountType === 'percent' ? sub*(d.discountVal/100) : d.discountVal;
-                let tx = 0; d.items.forEach(i => tx += (i.qty*i.price)*(i.tax/100));
-                let calcTotal = (sub - disc) + tx + d.shipping;
+                // Cálculos del documento
+                let sub = 0; 
+                if(d.items) d.items.forEach(i => sub += i.qty * i.price);
+                
+                let disc = d.discountType === 'percent' ? sub*(d.discountVal/100) : (d.discountVal || 0);
+                let tx = 0; 
+                if(d.items) d.items.forEach(i => tx += (i.qty*i.price)*(i.tax/100));
+                
+                let calcTotal = (sub - disc) + tx + (d.shipping || 0);
                 let total = d.total !== undefined ? d.total : calcTotal;
-                let balance = d.balance !== undefined ? d.balance : (total - d.paid);
+                let balance = d.balance !== undefined ? d.balance : (total - (d.paid || 0));
 
+                // Validación de estado de pago
                 if (filterPayment === 'pagada' && balance > 0.01) match = false;
                 if (filterPayment === 'pendiente' && balance <= 0.01) match = false;
 
                 return match;
             });
-            
+
+            // 4. Ordenar los resultados
             if(sortDashboard === 'date_desc') filtered.sort((a,b) => new Date(b.dateEmission) - new Date(a.dateEmission));
             if(sortDashboard === 'date_asc') filtered.sort((a,b) => new Date(a.dateEmission) - new Date(b.dateEmission));
             if(sortDashboard === 'folio_asc') filtered.sort((a,b) => a.folio.localeCompare(b.folio));
             if(sortDashboard === 'client_asc') filtered.sort((a,b) => a.client.name.localeCompare(b.client.name));
             
+            // 5. Actualizar los indicadores
             updateKPIs(filtered);
 
             if(filtered.length === 0) { container.innerHTML = `<div class="p-8 text-center text-xs text-slate-400 bg-white rounded-2xl border">Ningún registro coincide.</div>`; return; }
@@ -1309,7 +1459,8 @@
             const format = document.getElementById('dashboard-export-fmt').value;
             if (!month) { showToast("Seleccione un mes válido para exportar.", "error"); return; }
             
-            let docs = storage.documents.filter(d => d.type === 'Factura' && d.businessId === storage.activeBusinessId && d.dateEmission.startsWith(month));
+            let activeBiz = storage.activeBusinessId || (document.getElementById('doc-business-selector') ? document.getElementById('doc-business-selector').value : null);
+            let docs = storage.documents.filter(d => d.type === 'Factura' && (!activeBiz || d.businessId === activeBiz) && d.date && d.date.startsWith(month));
             if (docs.length === 0) { showToast("No hay facturas en el mes seleccionado.", "error"); return; }
             
             let data = [];
@@ -1318,13 +1469,14 @@
                     let qty = i.qty || 1;
                     let price = i.price || 0;
                     let sub = qty * price;
-                    let taxAmount = sub * ((i.tax || 0) / 100);
+                    let taxRate = i.tax || 0;
+                    let taxAmount = sub * (taxRate / 100);
                     let totalAmount = sub + taxAmount; 
                     data.push({
-                        "Fecha": d.dateEmission,
-                        "Hora": d.timeEmission || "-",
+                        "Fecha": d.date,
+                        "Hora": d.time || d.timeEmission || "-",
                         "Factura N°": d.folio,
-                        "Cliente": d.client.name,
+                        "Cliente": d.client && d.client.name ? d.client.name : 'Sin cliente',
                         "Servicio / Artículo": i.name,
                         "Método Pago": d.paymentMethod || 'No definido',
                         "Monto sin Impuesto": sub.toFixed(2),
@@ -1378,7 +1530,7 @@
             const grandTotal = doc.total !== undefined ? doc.total : (subtotal - discCalculated) + taxTotal + doc.shipping;
             const finalBalance = doc.balance !== undefined ? doc.balance : (grandTotal - (doc.paid || 0));
             return `
-                <div style="font-family: 'Inter', sans-serif; max-width: 800px; margin: 0 auto; padding: 40px; color: #1e293b; background: white;">
+                <div style="font-family: 'Inter', sans-serif; max-width: 900px; margin: 0 auto; padding: 40px; color: #1e293b; background: white;">
                     <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 30px;">
                         <div style="display: flex; align-items: center; gap: 15px;">
                             ${business.logo ? `<img src="${business.logo}" style="max-height: 80px; max-width: 150px; object-fit: contain;" />` : `<div style="width: 60px; height: 60px; background: #f1f5f9; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #94a3b8; font-size: 10px;">LOGO</div>`}
@@ -1404,18 +1556,64 @@
                             ${doc.type === 'Factura' ? `<div style="display: flex; justify-content: space-between; padding: 8px 0; font-size: 11px;"><span>Total Abonado:</span><span style="color: #10b981; font-weight: bold;">$${(doc.paid || 0).toFixed(2)}</span></div><div style="display: flex; justify-content: space-between; padding: 8px 0; font-size: 12px; font-weight: bold; color: #e11d48;"><span>Saldo Pendiente (CxC):</span><span>$${finalBalance.toFixed(2)}</span></div>` : ''}
                         </div>
                     </div>
-                    <div style="display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px solid #e2e8f0; padding-top: 20px;">
-                        <div style="width: 50%;"><h4 style="margin: 0 0 5px; font-size: 10px; text-transform: uppercase; color: #94a3b8;">Notas y Condiciones</h4><p style="margin: 0; font-size: 10px; color: #64748b; line-height: 1.4;">${doc.docNotes || 'Sin notas adicionales.'}</p></div>
-                        ${doc.signature && doc.signature.length > 50 ? `<div style="text-align: center; width: 200px;"><img src="${doc.signature}" style="max-width: 100%; max-height: 60px; border-bottom: 1px solid #0f172a; margin-bottom: 5px;" /><p style="margin: 0; font-size: 10px; font-weight: bold; color: #0f172a;">Firma Autorizada</p></div>` : ''}
+                    <div style="display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px solid #cbd5e1; padding-top: 1px; margin-top: 10px; page-break-inside: avoid; break-inside: avoid; width: 100%;">
+                            <div style="width: 55%; word-break: break-word;">
+                                <h4 style="margin: 0 0 4px; font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: bold;">Notas y Condiciones</h4>
+                                <p style="margin: 0; font-size: 10px; color: #475569; line-height: 1.3;">${doc.docNotes || 'Sin notas adicionales.'}</p>
+                            </div>
+                            <div style="text-align: center; width: 180px; flex-shrink: 0;">
+                                ${doc.signature ? `<img src="${doc.signature}" style="max-width: 100%; max-height: 70px; object-fit: contain; display: block; margin: 0 auto 4px;" />` : `<div style="height: 45px;"></div>`}
+                                <div style="border-top: 1px solid #0f172a; padding-top: 4px;">
+                                    <p style="margin: 0; font-size: 10px; font-weight: bold; color: #0f172a; text-transform: uppercase;">Firma Autorizada</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                </div>
             `;
+        }
+
+        // Función para procesar y descargar el PDF desde la tabla
+        function exportToPDF(docId) {
+            const doc = storage.documents.find(d => d.id === docId);
+            if (!doc) { 
+                showToast("Documento no encontrado.", "error"); 
+                return; 
+            }
+            
+            const htmlContent = generateDocumentPrintHTML(doc);
+            
+            // Contenedor temporal oculto para que html2pdf lo lea correctamente
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = htmlContent;
+            tempDiv.style.position = 'absolute';
+            tempDiv.style.left = '-9999px';
+            document.body.appendChild(tempDiv);
+
+            const filename = `${doc.type}_${doc.folio}.pdf`;
+            
+            const opt = {
+                margin:       [0, 0, 0, 0], // Márgenes superior, izquierdo, inferior, derecho
+                filename:     filename,
+                image:        { type: 'jpeg', quality: 200 },
+                html2canvas:  { scale: 3.0, useCORS: true }, // scale: 2 mejora resolución, useCORS ayuda con logos
+                jsPDF:        { unit: 'mm', format: 'letter', orientation: 'portrait' } // Formato carta estándar
+            };
+
+            // Ejecuta la librería HTML2PDF ya vinculada en tu código
+            html2pdf().set(opt).from(tempDiv.firstElementChild).save().then(() => {
+                document.body.removeChild(tempDiv);
+                showToast("Documento exportado y descargado exitosamente.");
+            }).catch(err => {
+                console.error(err);
+                document.body.removeChild(tempDiv);
+                showToast("Hubo un error generando el PDF.", "error");
+            });
         }
 
         function exportToPDF(docId) {
             const doc = storage.documents.find(d => d.id === docId); if(!doc) return;
             const printArea = document.createElement('div'); printArea.innerHTML = generateDocumentPrintHTML(doc);
-            const opt = { margin: 0, filename: `${doc.folio}_${doc.client.name.replace(/\s+/g, '_')}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
+            const opt = { margin: 0, filename: `${doc.folio}_${doc.client.name.replace(/\s+/g, '_')}.pdf`, image: { type: 'jpeg', quality: 200 }, html2canvas: { scale: 3.0 }, jsPDF: { unit: 'mm', format: 'letter', orientation: 'portrait' } };
             showToast("Procesando PDF..."); html2pdf().set(opt).from(printArea).save().then(() => showToast("Comprobante exportado."));
         }
 
@@ -2522,6 +2720,159 @@
             }
         }
         // --- FIN: GESTIÓN DE CUENTAS GUARDADAS ---
+
+        function generarPDFPlantillaPerfecta(doc) {
+            const themes = {
+                'inv-wave-blue': { primary: '#0284c7', bg: '#ffffff', headerBg: '#e0f2fe', font: 'Inter, sans-serif', border: 'none', radius: '24px' },
+                'inv-teal-split': { primary: '#0f766e', bg: '#ffffff', headerBg: '#ccfbf1', font: 'Inter, sans-serif', border: 'none', radius: '24px' },
+                'inv-geo-blue': { primary: '#0066ff', bg: '#ffffff', headerBg: '#f0f4ff', font: 'Arial, sans-serif', border: 'none', radius: '24px' },
+                'inv-corp-red': { primary: '#dc2626', bg: '#ffffff', headerBg: '#fee2e2', font: 'Inter, sans-serif', border: 'none', radius: '24px' },
+                'inv-multi-circles': { primary: '#7c3aed', bg: '#ffffff', headerBg: '#f3e8ff', font: 'Inter, sans-serif', border: 'none', radius: '24px' },
+                'inv-orange-diag': { primary: '#ea580c', bg: '#ffffff', headerBg: '#ffedd5', font: 'Inter, sans-serif', border: 'none', radius: '24px' },
+                'neo-glass': { primary: '#0ea5e9', bg: 'rgba(255, 255, 255, 0.85)', headerBg: 'rgba(224, 242, 254, 0.6)', font: 'Inter, sans-serif', border: 'none', radius: '24px' },
+                'dark-gradient': { primary: '#6366f1', bg: '#0f172a', headerBg: '#1e293b', font: 'Inter, sans-serif', border: 'none', radius: '24px' },
+                'nordic-clean': { primary: '#0f172a', bg: '#ffffff', headerBg: '#f8fafc', font: 'Inter, sans-serif', border: 'none', radius: '24px' },
+                'pastel-dream': { primary: '#ec4899', bg: '#fff1f2', headerBg: '#ffe4e6', font: 'Inter, sans-serif', border: 'none', radius: '24px' },
+                'neon-cyber': { primary: '#22c55e', bg: '#09090b', headerBg: '#18181b', font: 'Courier, monospace', border: 'none', radius: '24px' },
+                'brutal-mono': { primary: '#000000', bg: '#ffffff', headerBg: '#000000', font: 'Arial, sans-serif', border: 'none', radius: '24px' },
+                'holo-foil': { primary: '#8b5cf6', bg: '#ffffff', headerBg: '#f3e8ff', font: 'Inter, sans-serif', border: 'none', radius: '24px' },
+                'vibrant-mesh': { primary: '#f97316', bg: '#ffffff', headerBg: '#ffedd5', font: 'Inter, sans-serif', border: 'none', radius: '24px' },
+                'soft-shadows': { primary: '#64748b', bg: '#ffffff', headerBg: '#f8fafc', font: 'Inter, sans-serif', border: 'none', radius: '24px' },
+                'abstract-shapes': { primary: '#06b6d4', bg: '#ffffff', headerBg: '#cffafe', font: 'Inter, sans-serif', border: 'none', radius: '24px' },
+                'liquid-flow': { primary: '#3b82f6', bg: '#ffffff', headerBg: '#eff6ff', font: 'Inter, sans-serif', border: 'none', radius: '24px' },
+                'dark-emerald': { primary: '#10b981', bg: '#022c22', headerBg: '#064e3b', font: 'Inter, sans-serif', border: 'none', radius: '24px' },
+                'sunrise-glow': { primary: '#f59e0b', bg: '#fffbeb', headerBg: '#fef3c7', font: 'Georgia, serif', border: 'none', radius: '24px' },
+                'midnight-blue': { primary: '#1e3a8a', bg: '#f8fafc', headerBg: '#dbeafe', font: 'Inter, sans-serif', border: 'none', radius: '24px' },
+                'retro-wave': { primary: '#d946ef', bg: '#18181b', headerBg: '#27272a', font: 'Courier, monospace', border: 'none', radius: '24px' },
+                'sleek-silver': { primary: '#475569', bg: '#ffffff', headerBg: '#f1f5f9', font: 'Inter, sans-serif', border: 'none', radius: '24px' },
+                'coral-reef': { primary: '#fb7185', bg: '#ffffff', headerBg: '#fff1f2', font: 'Inter, sans-serif', border: 'none', radius: '24px' },
+                'space-black': { primary: '#ffffff', bg: '#000000', headerBg: '#121212', font: 'Inter, sans-serif', border: 'none', radius: '24px' },
+                'neumorphism-light': { primary: '#0f172a', bg: '#e2e8f0', headerBg: '#cbd5e1', font: 'Inter, sans-serif', border: 'none', radius: '24px' }
+            };
+
+            const templateId = doc.template || 'inv-wave-blue';
+            const theme = themes[templateId] || themes['inv-wave-blue'];
+            const business = storage.businesses.find(b => b.id === doc.businessId) || { name: 'Empresa', tax: '' };
+
+            let itemsHtml = '';
+            doc.items.forEach(item => {
+                let totalFila = item.qty * item.price;
+                itemsHtml += `
+                    <tr style="border-bottom: 1px solid #e2e8f0; color: #334155;">
+                        <td style="padding: 12px; text-align: left;">${item.name}</td>
+                        <td style="padding: 12px; text-align: center;">${item.qty}</td>
+                        <td style="padding: 12px; text-align: center;">$${item.price.toFixed(2)}</td>
+                        <td style="padding: 12px; text-align: right; font-weight: bold;">$${totalFila.toFixed(2)}</td>
+                    </tr>
+                `;
+            });
+
+            // Construimos la vista directamente como un string usando Tablas (Table Layout) para evitar bugs de Flexbox
+            const invoiceHTML = `
+                <div style="width: 99%; min-height: 600px; padding: 20px; background: ${theme.bg}; font-family: ${theme.font}; box-sizing: border-box; color: #0f172a;">
+                    
+                    <!-- Contenedor interno. 950px es el alto total (1000) menos los 80px de padding (40 arriba + 40 abajo) -->
+                    <div style="border: ${theme.border}; border-bottom: 8px solid ${theme.primary}; border-radius: ${theme.radius}; padding: 40px; background: ${theme.bg}; box-sizing: border-box; min-height: 1000px; overflow: hidden;">
+
+                        <!-- Cabecera en Tabla -->
+                        <table style="width: 100%; border-bottom: ${theme.line || 'solid 2px ' + theme.primary}; padding-bottom: 20px; background: ${theme.headerBg}; border-radius: ${theme.radius};">
+                            <tr>
+                                <td style="padding: 20px; vertical-align: top; width: 50%;">
+                                    <h1 style="color: ${theme.primary}; font-size: 28px; margin: 0; font-weight: 900; line-height: 1.1;">${business.name}</h1>
+                                    <p style="margin: 5px 0 5px 0; font-size: 14px; color: #475569;">RUC/Cédula: <b>${business.tax}</b></p>
+                                </td>
+                                <td style="padding: 20px; vertical-align: top; text-align: right; width: 50%;">
+                                    <h2 style="color: ${theme.primary}; font-size: 22px; margin: 0; text-transform: uppercase; letter-spacing: 1px;">${doc.type}</h2>
+                                    <p style="margin: 5px 0; font-size: 14px; color: #475569;">N° Folio: <b style="color: #0f172a;">${doc.folio}</b></p>
+                                    <p style="margin: 5px 0; font-size: 14px; color: #475569;">Fecha: <b>${doc.date}</b></p>
+                                </td>
+                            </tr>
+                        </table>
+
+                        <!-- Datos del Cliente en Tabla -->
+                        <table style="width: 100%; margin-top: 25px;">
+                            <tr>
+                                <td style="vertical-align: top; width: 50%;">
+                                    <h3 style="color: ${theme.primary}; font-size: 12px; text-transform: uppercase; margin-bottom: 5px; margin-top:0;">Facturar a:</h3>
+                                    <p style="margin: 0; font-size: 16px; font-weight: bold;">${doc.client.name}</p>
+                                    <p style="margin: 3px 0; font-size: 14px; color: #475569;">RUC/ID: ${doc.client.tax}</p>
+                                </td>
+                                <td style="vertical-align: top; text-align: right; width: 50%;">
+                                    <h3 style="color: ${theme.primary}; font-size: 12px; text-transform: uppercase; margin-bottom: 5px; margin-top:0;">Contacto:</h3>
+                                    <p style="margin: 0; font-size: 14px; color: #475569;">${doc.client.email}</p>
+                                    <p style="margin: 3px 0; font-size: 14px; color: #475569;">${doc.client.phone}</p>
+                                </td>
+                            </tr>
+                        </table>
+
+                        <!-- Tabla de Artículos con anchos definidos -->
+                        <div style="margin-top: 40px; min-height: 350px;">
+                            <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                                <thead>
+                                    <tr style="background-color: ${theme.primary}; color: #ffffff;">
+                                        <th style="padding: 12px; text-align: left; width: 45%;">Descripción / Concepto</th>
+                                        <th style="padding: 12px; text-align: center; width: 15%;">Cant.</th>
+                                        <th style="padding: 12px; text-align: center; width: 20%;">Precio Unit.</th>
+                                        <th style="padding: 12px; text-align: right; width: 20%;">Importe</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${itemsHtml}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Totales en Tabla -->
+                        <table style="width: 100%; margin-top: 20px; border-collapse: collapse; page-break-inside: avoid;">
+                            <tr>
+                                <td style="width: 55%; vertical-align: top; padding: 15px; background: #f8fafc; border-radius: ${theme.radius}; font-size: 12px; color: #475569;">
+                                    <p style="margin:0 0 5px 0;"><b>Método de Pago:</b> ${doc.paymentMethod}</p>
+                                    <p style="margin:15px 0 0 0;"><b>Notas:</b> ${doc.notes}</p>
+                                </td>
+                                <td style="width: 5%; vertical-align: top;"></td>
+                                <td style="width: 40%; vertical-align: top;">
+                                    <table style="width: 100%; font-size: 14px; border-collapse: collapse;">
+                                        <tr><td style="padding: 6px 0; color: #475569;">Subtotal:</td><td style="text-align: right; font-weight: bold;">${doc.subtotalText}</td></tr>
+                                        <tr><td style="padding: 6px 0; color: #475569;">Impuestos:</td><td style="text-align: right; font-weight: bold;">${doc.taxText}</td></tr>
+                                        <tr style="border-top: 2px solid ${theme.primary}; font-size: 18px;">
+                                            <td style="padding: 10px 0; color: ${theme.primary}; font-weight: 900;">Total:</td>
+                                            <td style="text-align: right; font-weight: 900; color: ${theme.primary};">${doc.totalText}</td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+                        </table>
+                        
+                        <!-- Si utilizas el border-bottom: 8px en el contenedor (arriba), esta línea extra ya no es necesaria. La he comentado. -->
+                        <!-- <div style="height: 6px; background-color: ${theme.primary}; margin-top: 40px; border-radius: 4px; width: 100%;"></div> -->
+                        
+                    </div>
+                </div>
+            `;
+
+            const opt = {
+                margin:       [0, 0, 0, 0],
+                filename:     `${doc.type}_${doc.folio}.pdf`,
+                image:        { type: 'jpeg', quality: 200.0 },
+                html2canvas:  { scale: 3.0, useCORS: true, letterRendering: true },
+                jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+            };
+
+            // Pasamos el string HTML directo a html2pdf. Esto crea un entorno aislado impecable.
+            html2pdf().set(opt).from(invoiceHTML).save();
+        }
+
+        function exportarPDFDesdeTablero(docId) {
+            // Busca el documento en el almacenamiento por su ID
+            const doc = storage.documents.find(d => d.id === docId);
+            
+            if (doc) {
+                // Ejecuta el motor avanzado respetando la plantilla elegida
+                generarPDFPlantillaPerfecta(doc);
+            } else {
+                alert("Error: No se encontró el documento para exportar.");
+            }
+        }
 
     </script>
 </body>
