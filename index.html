@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=1920">
     <title>InsighCom - Local BaaS</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
@@ -13,7 +13,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
@@ -2860,6 +2862,43 @@
 
             // Pasamos el string HTML directo a html2pdf. Esto crea un entorno aislado impecable.
             html2pdf().set(opt).from(invoiceHTML).save();
+        }
+
+        function exportarPDFPlantillaAislada(docData) {
+            // 1. Crear un contenedor temporal fuera de la pantalla con ancho fijo de escritorio (794px = A4)
+            const container = document.createElement('div');
+            container.style.position = 'fixed';
+            container.style.left = '-9999px';
+            container.style.top = '0';
+            container.style.width = '1920px'; // Ancho exacto de escritorio para evitar que se corra en móviles/tablets
+            container.style.backgroundColor = '#ffffff';
+            container.style.color = '#000000';
+            container.style.fontFamily = "'Inter', sans-serif";
+            container.style.padding = '40px';
+            container.style.boxSizing = 'border-box';
+
+            // 2. Inyectar el HTML de la plantilla asegurando clases fijas (evitando clases responsivas colapsadas)
+            container.innerHTML = obtenerHTMLPlantilla(docData); // O la lógica que renderiza tu plantilla seleccionada
+
+            document.body.appendChild(container);
+
+            // 3. Configurar html2pdf con un windowWidth fijo para simular pantalla de laptop/desktop
+            const opt = {
+                margin:       [0, 0, 0, 0],
+                filename:     `${docData.type}-${docData.folio}.pdf`,
+                image:        { type: 'jpeg', quality: 200.0 },
+                html2canvas:  { 
+                    scale: 3.0, 
+                    useCORS: true, 
+                    windowWidth: 1920 // Fuerza al motor a renderizar como si estuviera en una pantalla de escritorio
+                },
+                jsPDF:        { unit: 'mm', format: 'letter', orientation: 'portrait' }
+            };
+
+            // 4. Generar, descargar y limpiar el DOM temporal
+            html2pdf().from(container).set(opt).save().then(() => {
+                document.body.removeChild(container);
+            });
         }
 
         function exportarPDFDesdeTablero(docId) {
