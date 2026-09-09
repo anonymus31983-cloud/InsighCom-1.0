@@ -2754,7 +2754,7 @@
 
             const templateId = doc.template || 'inv-wave-blue';
             const theme = themes[templateId] || themes['inv-wave-blue'];
-            const business = storage.businesses.find(b => b.id === doc.businessId) || { name: 'Empresa', tax: '', logo: '' };
+            const business = storage.businesses.find(b => b.id === doc.businessId) || { name: 'Empresa', tax: '' };
 
             let itemsHtml = '';
             doc.items.forEach(item => {
@@ -2773,28 +2773,17 @@
             const invoiceHTML = `
                 <div style="width: 99%; min-height: 600px; padding: 20px; background: ${theme.bg}; font-family: ${theme.font}; box-sizing: border-box; color: #0f172a;">
                     
-                    <!-- Contenedor interno -->
+                    <!-- Contenedor interno. 950px es el alto total (1000) menos los 80px de padding (40 arriba + 40 abajo) -->
                     <div style="border: ${theme.border}; border-bottom: 8px solid ${theme.primary}; border-radius: ${theme.radius}; padding: 40px; background: ${theme.bg}; box-sizing: border-box; min-height: 1000px; overflow: hidden;">
 
                         <!-- Cabecera en Tabla -->
                         <table style="width: 100%; border-bottom: ${theme.line || 'solid 2px ' + theme.primary}; padding-bottom: 20px; background: ${theme.headerBg}; border-radius: ${theme.radius};">
                             <tr>
-                                <td style="padding: 20px; vertical-align: middle; width: 55%;">
-                                    <!-- Subtabla para alinear Logo y Nombre de la Empresa horizontalmente -->
-                                    <table style="width: 100%; border-collapse: collapse;">
-                                        <tr>
-                                            ${business.logo ? `
-                                            <td style="vertical-align: middle; padding-right: 15px; width: 1%;">
-                                                <img src="${business.logo}" style="max-height: 55px; max-width: 130px; object-fit: contain; display: block;" alt="Logo" />
-                                            </td>` : ''}
-                                            <td style="vertical-align: middle;">
-                                                <h1 style="color: ${theme.primary}; font-size: 26px; margin: 0; font-weight: 900; line-height: 1.1;">${business.name}</h1>
-                                                <p style="margin: 4px 0 0 0; font-size: 13px; color: #475569;">RUC/Cédula: <b>${business.tax}</b></p>
-                                            </td>
-                                        </tr>
-                                    </table>
+                                <td style="padding: 20px; vertical-align: top; width: 50%;">
+                                    <h1 style="color: ${theme.primary}; font-size: 28px; margin: 0; font-weight: 900; line-height: 1.1;">${business.name}</h1>
+                                    <p style="margin: 5px 0 5px 0; font-size: 14px; color: #475569;">RUC/Cédula: <b>${business.tax}</b></p>
                                 </td>
-                                <td style="padding: 20px; vertical-align: middle; text-align: right; width: 45%;">
+                                <td style="padding: 20px; vertical-align: top; text-align: right; width: 50%;">
                                     <h2 style="color: ${theme.primary}; font-size: 22px; margin: 0; text-transform: uppercase; letter-spacing: 1px;">${doc.type}</h2>
                                     <p style="margin: 5px 0; font-size: 14px; color: #475569;">N° Folio: <b style="color: #0f172a;">${doc.folio}</b></p>
                                     <p style="margin: 5px 0; font-size: 14px; color: #475569;">Fecha: <b>${doc.date}</b></p>
@@ -2856,6 +2845,9 @@
                             </tr>
                         </table>
                         
+                        <!-- Si utilizas el border-bottom: 8px en el contenedor (arriba), esta línea extra ya no es necesaria. La he comentado. -->
+                        <!-- <div style="height: 6px; background-color: ${theme.primary}; margin-top: 40px; border-radius: 4px; width: 100%;"></div> -->
+                        
                     </div>
                 </div>
             `;
@@ -2868,6 +2860,7 @@
                 jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
             };
 
+            // Pasamos el string HTML directo a html2pdf. Esto crea un entorno aislado impecable.
             html2pdf().set(opt).from(invoiceHTML).save();
         }
 
