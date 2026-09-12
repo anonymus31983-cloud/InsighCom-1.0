@@ -2754,7 +2754,7 @@
 
             const templateId = doc.template || 'inv-wave-blue';
             const theme = themes[templateId] || themes['inv-wave-blue'];
-            const business = storage.businesses.find(b => b.id === doc.businessId) || { name: 'Empresa', tax: '' };
+            const business = storage.businesses.find(b => b.id === doc.businessId) || { name: 'Empresa', tax: '', logo: '' };
 
             let itemsHtml = '';
             doc.items.forEach(item => {
@@ -2779,9 +2779,20 @@
                         <!-- Cabecera en Tabla -->
                         <table style="width: 100%; border-bottom: ${theme.line || 'solid 2px ' + theme.primary}; padding-bottom: 20px; background: ${theme.headerBg}; border-radius: ${theme.radius};">
                             <tr>
-                                <td style="padding: 20px; vertical-align: top; width: 50%;">
-                                    <h1 style="color: ${theme.primary}; font-size: 28px; margin: 0; font-weight: 900; line-height: 1.1;">${business.name}</h1>
-                                    <p style="margin: 5px 0 5px 0; font-size: 14px; color: #475569;">RUC/Cédula: <b>${business.tax}</b></p>
+                                <td style="padding: 20px; vertical-align: middle; width: 55%;">
+                                    <!-- Subtabla para alinear Logo y Nombre de la Empresa horizontalmente -->
+                                    <table style="width: 100%; border-collapse: collapse;">
+                                        <tr>
+                                            ${business.logo ? `
+                                            <td style="vertical-align: middle; padding-right: 15px; width: 1%;">
+                                                <img src="${business.logo}" style="max-height: 55px; max-width: 130px; object-fit: contain; display: block;" alt="Logo" />
+                                            </td>` : ''}
+                                            <td style="vertical-align: middle;">
+                                                <h1 style="color: ${theme.primary}; font-size: 26px; margin: 0; font-weight: 900; line-height: 1.1;">${business.name}</h1>
+                                                <p style="margin: 4px 0 0 0; font-size: 13px; color: #475569;">RUC/Cédula: <b>${business.tax}</b></p>
+                                            </td>
+                                        </tr>
+                                    </table>
                                 </td>
                                 <td style="padding: 20px; vertical-align: top; text-align: right; width: 50%;">
                                     <h2 style="color: ${theme.primary}; font-size: 22px; margin: 0; text-transform: uppercase; letter-spacing: 1px;">${doc.type}</h2>
